@@ -29,7 +29,7 @@ r.get('/', async (req: Request, res: Response) => {
       },
       include: {
         usuario: {
-          select: { id: true, nome: true, email: true },
+          select: { id: true, nome: true },
         },
       },
     });
@@ -48,11 +48,8 @@ r.get('/:id', async (req: Request, res: Response) => {
       where: { id },
       include: {
         usuario: {
-          select: { id: true, nome: true, email: true },
-        },
-        consultas: {
-          where: { status: { in: ['PENDENTE', 'ACEITA'] } },
-          select: { id: true, data: true, status: true },
+          // Evita expor email em rota pública
+          select: { id: true, nome: true },
         },
       },
     });

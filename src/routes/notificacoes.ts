@@ -18,6 +18,13 @@ r.post('/device-token', async (req: Request, res: Response) => {
       return res.status(400).json({ erro: 'Token é obrigatório' });
     }
 
+    const existente = await prisma.deviceToken.findUnique({ where: { token } });
+    if (existente && existente.usuarioId !== userId) {
+      return res.status(409).json({
+        erro: 'Token já está registrado para outro usuário',
+      });
+    }
+
     const saved = await prisma.deviceToken.upsert({
       where: { token },
       update: { usuarioId: userId, platform: platform || null },

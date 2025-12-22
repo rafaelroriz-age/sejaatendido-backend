@@ -317,6 +317,8 @@ r.post('/pix/:pagamentoId/confirmar', authMiddleware, requireRole('ADMIN'), asyn
 r.get('/:pagamentoId', authMiddleware, async (req: Request, res: Response) => {
   try {
     const { pagamentoId } = req.params;
+    const userId = req.userId!;
+    const userTipo = req.userTipo!;
 
     const pagamento = await prisma.pagamento.findUnique({
       where: { id: pagamentoId },
@@ -344,6 +346,16 @@ r.get('/:pagamentoId', authMiddleware, async (req: Request, res: Response) => {
 
     if (!pagamento) {
       return res.status(404).json({ erro: 'Pagamento não encontrado' });
+    }
+
+    // Controle de acesso: admin OU participante da consulta
+    if (userTipo !== 'ADMIN') {
+      const medicoUsuarioId = pagamento.consulta.medico.usuario.id;
+      const pacienteUsuarioId = pagamento.consulta.paciente.usuario.id;
+      const isOwner = userId === medicoUsuarioId || userId === pacienteUsuarioId;
+      if (!isOwner) {
+        return res.status(403).json({ erro: 'Sem permissão para acessar este pagamento' });
+      }
     }
 
     res.json(pagamento);

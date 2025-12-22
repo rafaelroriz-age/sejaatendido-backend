@@ -1,7 +1,15 @@
 import { Request, Response, NextFunction } from 'express';
 
 export function errorHandler(err: any, req: Request, res: Response, next: NextFunction) {
-  console.error('Error:', err);
+  // Logging seguro: evita despejar objetos grandes/headers em produção
+  if (process.env.NODE_ENV === 'development') {
+    console.error('Error:', err);
+  } else {
+    const name = typeof err?.name === 'string' ? err.name : 'Error';
+    const message = typeof err?.message === 'string' ? err.message : 'Unexpected error';
+    const code = typeof err?.code === 'string' ? err.code : undefined;
+    console.error('Error:', { name, code, message });
+  }
 
   if (err.name === 'JsonWebTokenError') {
     return res.status(401).json({ erro: 'Token inválido' });

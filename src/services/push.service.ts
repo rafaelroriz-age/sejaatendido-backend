@@ -24,7 +24,12 @@ function initFirebase() {
     initialized = true;
   } catch (e) {
     // Não quebra a API se push não estiver configurado
-    console.warn('FCM não inicializado (push desabilitado):', e);
+    if (ENV.NODE_ENV === 'development') {
+      console.warn('FCM não inicializado (push desabilitado):', e);
+    } else {
+      const msg = typeof (e as any)?.message === 'string' ? (e as any).message : 'Erro ao inicializar FCM';
+      console.warn('FCM não inicializado (push desabilitado):', msg);
+    }
     initialized = false;
   }
 }
