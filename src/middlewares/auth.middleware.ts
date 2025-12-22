@@ -24,7 +24,11 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
       return res.status(401).json({ erro: 'Token não fornecido' });
     }
 
-    const [, token] = authHeader.split(' '); // "Bearer TOKEN"
+    const [scheme, token] = authHeader.split(' '); // "Bearer TOKEN"
+
+    if (!scheme || scheme.toLowerCase() !== 'bearer') {
+      return res.status(401).json({ erro: 'Esquema de autenticação inválido' });
+    }
 
     if (!token) {
       return res.status(401).json({ erro: 'Token malformado' });

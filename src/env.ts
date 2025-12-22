@@ -38,3 +38,10 @@ export const ENV = {
   DATABASE_URL: process.env.DATABASE_URL || '',
 };
 
+// Fail-fast em produção para evitar segredos fracos/padrão
+if (ENV.NODE_ENV === 'production') {
+  if (!process.env.JWT_SEGREDO || process.env.JWT_SEGREDO === 'dev-secret-change-in-production' || process.env.JWT_SEGREDO.length < 24) {
+    throw new Error('JWT_SEGREDO ausente/fraco em produção. Defina um segredo forte (>= 24 chars).');
+  }
+}
+
