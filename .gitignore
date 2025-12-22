@@ -14,27 +14,19 @@ dist/
 build/
 # Logs
 logs/
-[ ] Copiar a URL do repositório (ex: https://github.com/seu-usuario/sejaatendidobackend.git)
-1.1.3 Preparar Projeto Local Backend (10 min)
-[ ] Abrir terminal/prompt de comando
-[ ] Navegar até a pasta onde seu projeto backend já existe:
-[ ] Verificar se está na pasta correta: ls (Mac/Linux) ou dir (Windows)
-[ ] Verificar se já existe .git: ls -la (Mac/Linux) ou dir /a (Windows)
-1.1.4 Inicializar Git (SE NÃO EXISTIR) (2 min)
-[ ] Se não há pasta .git, inicializar:
-[ ] Confirmar mensagem: "Initialized empty Git repository"
-[ ] Verificar status:
-1.1.5 Criar .gitignore para Backend (5 min)
-[ ] Criar arquivo .gitignore na raiz do projeto
-[ ] Adicionar o seguinte conteúdo:
+
+# Generic
 *.log
+
 # OS files
 .DS_Store
 Thumbs.db
+
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
+
 # Testing
 coverage/

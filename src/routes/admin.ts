@@ -1,6 +1,10 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../utils/prisma';
 import { authMiddleware, requireRole } from '../middlewares/auth.middleware';
+import emailService from '../services/email.service';
+import { validate } from '../middlewares/validate.middleware';
+import { adminAtualizarUsuarioSchema, adminCriarUsuarioSchema } from '../validators/schemas';
+import bcrypt from 'bcryptjs';
 
 const r = Router();
 
@@ -62,6 +66,13 @@ r.post('/medicos/:id/aprovar', async (req: Request, res: Response) => {
         },
       },
     });
+
+    // Email (best-effort)
+    try {
+      await emailService.enviarMedicoAprovado(medico.usuario.email, medico.usuario.nome);
+    } catch (e) {
+      console.warn('Falha ao enviar email de médico aprovado:', e);
+    }
 
     res.json({ mensagem: 'Médico aprovado com sucesso', medico });
   } catch (e) {
@@ -172,6 +183,75 @@ r.get('/usuarios', async (req: Request, res: Response) => {
   } catch (e) {
     console.error(e);
     res.status(500).json({ erro: 'Erro ao listar usuários' });
+  }
+});
+
+// Criar usuário (cadastro manual pelo ADMIN)
+r.post('/usuarios', validate(adminCriarUsuarioSchema), async (req: Request, res: Response) => {
+  try {
+    const { nome, email, senha, tipo, crm, especialidades } = req.body;
+
+    const existe = await prisma.usuario.findUnique({ where: { email } });
+    if (existe) return res.status(400).json({ erro: 'Email já cadastrado' });
+
+    const senhaHash = await bcrypt.hash(senha, 10);
+
+    const usuario = await prisma.usuario.create({
+      data: { nome, email, senhaHash, tipo },
+      select: { id: true, nome: true, email: true, tipo: true, criadoEm: true },
+    });
+
+    if (tipo === 'MEDICO') {
+      await prisma.medico.create({
+        data: {
+          usuarioId: usuario.id,
+          crm: crm || '',
+          especialidades: especialidades || [],
+        },
+      });
+    }
+
+    if (tipo === 'PACIENTE') {
+      await prisma.paciente.create({ data: { usuarioId: usuario.id } });
+    }
+
+    res.status(201).json(usuario);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ erro: 'Erro ao criar usuário' });
+  }
+});
+
+// Atualizar usuário (nome/email) - não altera tipo (evita inconsistências)
+r.put('/usuarios/:id', validate(adminAtualizarUsuarioSchema), async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { nome, email } = req.body;
+
+    if (!nome && !email) {
+      return res.status(400).json({ erro: 'Nada para atualizar' });
+    }
+
+    if (email) {
+      const emailEmUso = await prisma.usuario.findFirst({
+        where: { email, id: { not: id } },
+      });
+      if (emailEmUso) return res.status(400).json({ erro: 'Email já está em uso' });
+    }
+
+    const atualizado = await prisma.usuario.update({
+      where: { id },
+      data: {
+        ...(nome && { nome }),
+        ...(email && { email }),
+      },
+      select: { id: true, nome: true, email: true, tipo: true, criadoEm: true },
+    });
+
+    res.json(atualizado);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ erro: 'Erro ao atualizar usuário' });
   }
 });
 

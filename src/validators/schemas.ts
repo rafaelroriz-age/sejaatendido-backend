@@ -15,6 +15,10 @@ export const loginSchema = z.object({
   senha: z.string().min(1, 'Senha obrigatória'),
 });
 
+export const loginGoogleSchema = z.object({
+  idToken: z.string().min(1, 'idToken é obrigatório'),
+});
+
 // =====================
 // CONSULTA SCHEMAS
 // =====================
@@ -50,6 +54,20 @@ export const alterarSenhaSchema = z.object({
   novaSenha: z.string().min(6, 'Nova senha deve ter no mínimo 6 caracteres'),
 });
 
+export const adminCriarUsuarioSchema = z.object({
+  nome: z.string().min(3, 'Nome deve ter no mínimo 3 caracteres'),
+  email: z.string().email('Email inválido'),
+  senha: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
+  tipo: z.enum(['PACIENTE', 'MEDICO', 'ADMIN']),
+  crm: z.string().min(4, 'CRM inválido').optional(),
+  especialidades: z.array(z.string()).optional(),
+});
+
+export const adminAtualizarUsuarioSchema = z.object({
+  nome: z.string().min(3, 'Nome deve ter no mínimo 3 caracteres').optional(),
+  email: z.string().email('Email inválido').optional(),
+});
+
 // =====================
 // PAGAMENTO SCHEMAS
 // =====================
@@ -57,6 +75,16 @@ export const criarPagamentoSchema = z.object({
   consultaId: z.string().uuid('ID da consulta inválido'),
   metodo: z.enum(['PIX', 'CARTAO']),
   valorCentavos: z.number().int().positive('Valor deve ser positivo'),
+});
+
+export const criarPagamentoPixSchema = z.object({
+  consultaId: z.string().uuid('ID da consulta inválido'),
+  valorCentavos: z.number().int().positive('Valor deve ser positivo').optional(),
+});
+
+export const criarPagamentoCartaoSchema = z.object({
+  consultaId: z.string().uuid('ID da consulta inválido'),
+  valorCentavos: z.number().int().positive('Valor deve ser positivo').optional(),
 });
 
 // =====================

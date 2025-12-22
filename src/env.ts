@@ -5,12 +5,25 @@ export const ENV = {
   PORTA: Number(process.env.PORTA || 3001),
   NODE_ENV: process.env.NODE_ENV || 'development',
 
+  // CORS
+  CORS_ORIGIN: process.env.CORS_ORIGIN || '*',
+
   // JWT
   JWT_SEGREDO: process.env.JWT_SEGREDO || 'dev-secret-change-in-production',
+
+  // Jobs/cron (protege endpoints de disparo automático)
+  CRON_SECRET: process.env.CRON_SECRET || '',
+
+  // Google OAuth
+  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || '',
 
   // Stripe
   STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || '',
   STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET || '',
+
+  // Firebase (FCM)
+  // Pode ser um JSON inteiro (string) com service account, ou usar GOOGLE_APPLICATION_CREDENTIALS no deploy.
+  FIREBASE_SERVICE_ACCOUNT_JSON: process.env.FIREBASE_SERVICE_ACCOUNT_JSON || '',
 
   // Email (SMTP)
   SMTP_HOST: process.env.SMTP_HOST || 'smtp.gmail.com',

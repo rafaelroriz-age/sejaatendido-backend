@@ -3,6 +3,8 @@ import { prisma } from '../utils/prisma';
 import { authMiddleware, requireRole } from '../middlewares/auth.middleware';
 import { validate } from '../middlewares/validate.middleware';
 import { criarConsultaSchema } from '../validators/schemas';
+import emailService from '../services/email.service';
+import { enviarPushParaUsuario } from '../services/push.service';
 
 const r = Router();
 
@@ -48,6 +50,9 @@ r.post(
 
       const paciente = await prisma.paciente.findUnique({
         where: { usuarioId: userId },
+        include: {
+          usuario: { select: { id: true, nome: true, email: true } },
+        },
       });
 
       if (!paciente) {
@@ -57,6 +62,7 @@ r.post(
       // Verificar se médico existe e está aprovado
       const medico = await prisma.medico.findUnique({
         where: { id: medicoId },
+        include: { usuario: { select: { id: true, nome: true, email: true } } },
       });
 
       if (!medico || !medico.aprovado) {
@@ -95,6 +101,40 @@ r.post(
           },
         },
       });
+
+      // Emails (best-effort)
+      try {
+        const especialidade = medico.especialidades?.[0] || 'Consulta';
+        await emailService.enviarConsultaAgendada(
+          paciente.usuario.email,
+          paciente.usuario.nome,
+          medico.usuario.nome,
+          especialidade,
+          dataConsulta,
+          motivo
+        );
+        await emailService.enviarNovaConsultaMedico(
+          medico.usuario.email,
+          medico.usuario.nome,
+          paciente.usuario.nome,
+          dataConsulta,
+          motivo
+        );
+      } catch (e) {
+        console.warn('Falha ao enviar emails da consulta:', e);
+      }
+
+      // Push para o médico (best-effort)
+      try {
+        await enviarPushParaUsuario({
+          usuarioId: medico.usuario.id,
+          titulo: 'Nova solicitação de consulta',
+          corpo: `${paciente.usuario.nome} solicitou uma consulta`,
+          data: { tipo: 'NOVA_CONSULTA', consultaId: consulta.id },
+        });
+      } catch (e) {
+        console.warn('Falha ao enviar push para médico:', e);
+      }
 
       res.status(201).json(consulta);
     } catch (e) {
@@ -198,6 +238,10 @@ r.delete('/consultas/:id', authMiddleware, requireRole('PACIENTE'), async (req: 
 
     const consulta = await prisma.consulta.findUnique({
       where: { id },
+      include: {
+        medico: { include: { usuario: { select: { id: true, nome: true, email: true } } } },
+        paciente: { include: { usuario: { select: { id: true, nome: true, email: true } } } },
+      },
     });
 
     if (!consulta || consulta.pacienteId !== paciente.id) {
@@ -220,6 +264,29 @@ r.delete('/consultas/:id', authMiddleware, requireRole('PACIENTE'), async (req: 
       where: { id },
       data: { status: 'CANCELADA' },
     });
+
+    // Notificações (best-effort)
+    try {
+      await emailService.enviarConsultaCancelada(
+        consulta.paciente.usuario.email,
+        consulta.paciente.usuario.nome,
+        consulta.medico.usuario.nome,
+        new Date(consulta.data)
+      );
+    } catch (e) {
+      console.warn('Falha ao enviar email de cancelamento:', e);
+    }
+
+    try {
+      await enviarPushParaUsuario({
+        usuarioId: consulta.medico.usuario.id,
+        titulo: 'Consulta cancelada',
+        corpo: `${consulta.paciente.usuario.nome} cancelou a consulta`,
+        data: { tipo: 'CONSULTA_CANCELADA', consultaId: consulta.id },
+      });
+    } catch (e) {
+      console.warn('Falha ao enviar push de cancelamento:', e);
+    }
 
     res.json(atualizada);
   } catch (e) {

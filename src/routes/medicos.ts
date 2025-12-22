@@ -3,6 +3,8 @@ import { prisma } from '../utils/prisma';
 import { authMiddleware, requireRole } from '../middlewares/auth.middleware';
 import { validate } from '../middlewares/validate.middleware';
 import { atualizarMedicoSchema, atualizarConsultaSchema } from '../validators/schemas';
+import emailService from '../services/email.service';
+import { enviarPushParaUsuario } from '../services/push.service';
 
 const r = Router();
 
@@ -189,6 +191,7 @@ r.patch(
 
       const medico = await prisma.medico.findUnique({
         where: { usuarioId: userId },
+        include: { usuario: { select: { id: true, nome: true, email: true } } },
       });
 
       if (!medico) {
@@ -197,6 +200,9 @@ r.patch(
 
       const consulta = await prisma.consulta.findUnique({
         where: { id: consultaId },
+        include: {
+          paciente: { include: { usuario: { select: { id: true, nome: true, email: true } } } },
+        },
       });
 
       if (!consulta || consulta.medicoId !== medico.id) {
@@ -219,6 +225,44 @@ r.patch(
           },
         },
       });
+
+      // Notificações (best-effort)
+      try {
+        if (status === 'ACEITA') {
+          await emailService.enviarConsultaConfirmada(
+            atualizada.paciente.usuario.email,
+            atualizada.paciente.usuario.nome,
+            medico.usuario.nome,
+            new Date(atualizada.data),
+            atualizada.meetLink || meetLink
+          );
+
+          await enviarPushParaUsuario({
+            usuarioId: atualizada.paciente.usuario.id,
+            titulo: 'Consulta confirmada',
+            corpo: `Sua consulta com Dr(a). ${medico.usuario.nome} foi confirmada`,
+            data: { tipo: 'CONSULTA_ACEITA', consultaId: atualizada.id },
+          });
+        }
+
+        if (status === 'RECUSADA') {
+          await emailService.enviarConsultaCancelada(
+            atualizada.paciente.usuario.email,
+            atualizada.paciente.usuario.nome,
+            medico.usuario.nome,
+            new Date(atualizada.data)
+          );
+
+          await enviarPushParaUsuario({
+            usuarioId: atualizada.paciente.usuario.id,
+            titulo: 'Consulta recusada',
+            corpo: `Sua solicitação com Dr(a). ${medico.usuario.nome} foi recusada`,
+            data: { tipo: 'CONSULTA_RECUSADA', consultaId: atualizada.id },
+          });
+        }
+      } catch (e) {
+        console.warn('Falha ao enviar notificações da consulta:', e);
+      }
 
       res.json(atualizada);
     } catch (e) {

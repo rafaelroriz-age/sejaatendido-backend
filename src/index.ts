@@ -8,6 +8,7 @@ import adminRoutes from './routes/admin';
 import pagamentoRoutes from './routes/pagamentos';
 import usuarioRoutes from './routes/usuarios';
 import emailRoutes from './routes/emails';
+import notificacoesRoutes from './routes/notificacoes';
 import { errorHandler } from './middlewares/error.middleware';
 import { ENV } from './env';
 
@@ -16,7 +17,16 @@ dotenv.config();
 const app = express();
 
 // Middlewares globais
-app.use(cors());
+app.use(
+  cors({
+    origin: ENV.CORS_ORIGIN === '*' ? true : ENV.CORS_ORIGIN,
+    credentials: true,
+  })
+);
+
+// Stripe webhook precisa do corpo RAW (antes do json parser)
+app.use('/pagamentos/webhook/stripe', express.raw({ type: 'application/json' }));
+
 app.use(express.json());
 
 // Health check
@@ -41,6 +51,7 @@ app.use('/admin', adminRoutes);
 app.use('/pagamentos', pagamentoRoutes);
 app.use('/usuarios', usuarioRoutes);
 app.use('/emails', emailRoutes);
+app.use('/notificacoes', notificacoesRoutes);
 
 // Error handler (deve ser o último middleware)
 app.use(errorHandler);

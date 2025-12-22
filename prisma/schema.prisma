@@ -12,8 +12,10 @@ model Usuario {
   email     String   @unique
   senhaHash String
   tipo      TipoUsuario
+  emailConfirmado Boolean @default(false)
   medico    Medico?
   paciente  Paciente?
+  deviceTokens DeviceToken[]
   criadoEm  DateTime @default(now())
 }
 
@@ -70,6 +72,18 @@ model Documento {
   url      String
   tipo     String
   medico   Medico  @relation(fields:[medicoId], references:[id])
+}
+
+model DeviceToken {
+  id        String   @id @default(uuid())
+  usuarioId String
+  token     String   @unique
+  platform  String?
+  criadoEm  DateTime @default(now())
+
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId])
 }
 
 enum StatusConsulta {

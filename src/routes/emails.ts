@@ -5,8 +5,85 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { ENV } from '../env';
 import emailService from '../services/email.service';
+import { enviarPushParaUsuario } from '../services/push.service';
 
 const r = Router();
+
+// =====================
+// JOB: LEMBRETES DE CONSULTA (CRON)
+// =====================
+// Proteção: header x-cron-secret = ENV.CRON_SECRET OU usuário ADMIN autenticado
+r.post(
+  '/jobs/lembretes-consultas',
+  (req, res, next) => {
+    const secret = req.header('x-cron-secret');
+    if (ENV.CRON_SECRET && secret === ENV.CRON_SECRET) return next();
+    return authMiddleware(req as any, res as any, () => requireRole('ADMIN')(req as any, res as any, next));
+  },
+  async (req: Request, res: Response) => {
+    try {
+      // Amanhã (00:00 até 23:59:59)
+      const now = new Date();
+      const inicio = new Date(now);
+      inicio.setDate(inicio.getDate() + 1);
+      inicio.setHours(0, 0, 0, 0);
+
+      const fim = new Date(inicio);
+      fim.setHours(23, 59, 59, 999);
+
+      const consultas = await prisma.consulta.findMany({
+        where: {
+          status: 'ACEITA',
+          data: { gte: inicio, lte: fim },
+        },
+        include: {
+          paciente: { include: { usuario: { select: { id: true, nome: true, email: true } } } },
+          medico: { include: { usuario: { select: { id: true, nome: true } } } },
+        },
+      });
+
+      let emailsEnviados = 0;
+      let pushEnviados = 0;
+
+      for (const c of consultas) {
+        try {
+          const ok = await emailService.enviarLembreteConsulta(
+            c.paciente.usuario.email,
+            c.paciente.usuario.nome,
+            c.medico.usuario.nome,
+            new Date(c.data),
+            c.meetLink || undefined
+          );
+          if (ok) emailsEnviados += 1;
+        } catch (e) {
+          console.warn('Falha ao enviar lembrete email:', e);
+        }
+
+        try {
+          const r = await enviarPushParaUsuario({
+            usuarioId: c.paciente.usuario.id,
+            titulo: 'Lembrete de consulta',
+            corpo: 'Sua consulta é amanhã',
+            data: { tipo: 'LEMBRETE_CONSULTA', consultaId: c.id },
+          });
+          if (r.ok) pushEnviados += r.enviado;
+        } catch (e) {
+          console.warn('Falha ao enviar lembrete push:', e);
+        }
+      }
+
+      res.json({
+        intervalo: { inicio: inicio.toISOString(), fim: fim.toISOString() },
+        consultas: consultas.length,
+        emailsEnviados,
+        pushEnviados,
+      });
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ erro: 'Erro ao enviar lembretes' });
+    }
+  }
+);
 
 // =====================
 // SOLICITAR CONFIRMAÇÃO DE EMAIL
@@ -54,8 +131,11 @@ r.post('/confirmar-email', async (req: Request, res: Response) => {
       return res.status(400).json({ erro: 'Token inválido' });
     }
 
-    // Aqui você poderia marcar o email como confirmado
-    // Por enquanto apenas retornamos sucesso
+    await prisma.usuario.update({
+      where: { id: decoded.id },
+      data: { emailConfirmado: true },
+    });
+
     res.json({ mensagem: 'Email confirmado com sucesso' });
   } catch (e) {
     console.error(e);

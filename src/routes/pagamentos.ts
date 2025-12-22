@@ -1,10 +1,12 @@
-import { Router, Request, Response, raw } from 'express';
+import { Router, Request, Response } from 'express';
 import { prisma } from '../utils/prisma';
 import { authMiddleware, requireRole } from '../middlewares/auth.middleware';
 import { validate } from '../middlewares/validate.middleware';
-import { criarPagamentoSchema } from '../validators/schemas';
+import { criarPagamentoCartaoSchema, criarPagamentoPixSchema } from '../validators/schemas';
 import Stripe from 'stripe';
 import { ENV } from '../env';
+import emailService from '../services/email.service';
+import { enviarPushParaUsuario } from '../services/push.service';
 
 const r = Router();
 
@@ -16,7 +18,7 @@ const stripe = ENV.STRIPE_SECRET_KEY ? new Stripe(ENV.STRIPE_SECRET_KEY) : null;
 // =====================
 
 // Criar pagamento PIX
-r.post('/pix', authMiddleware, requireRole('PACIENTE'), async (req: Request, res: Response) => {
+r.post('/pix', authMiddleware, requireRole('PACIENTE'), validate(criarPagamentoPixSchema), async (req: Request, res: Response) => {
   try {
     const userId = req.userId!;
     const { consultaId, valorCentavos } = req.body;
@@ -76,7 +78,12 @@ r.post('/pix', authMiddleware, requireRole('PACIENTE'), async (req: Request, res
 });
 
 // Criar pagamento Cartão (Stripe)
-r.post('/cartao', authMiddleware, requireRole('PACIENTE'), async (req: Request, res: Response) => {
+r.post(
+  '/cartao',
+  authMiddleware,
+  requireRole('PACIENTE'),
+  validate(criarPagamentoCartaoSchema),
+  async (req: Request, res: Response) => {
   try {
     if (!stripe) {
       return res.status(503).json({ erro: 'Pagamento com cartão não configurado' });
@@ -154,13 +161,14 @@ r.post('/cartao', authMiddleware, requireRole('PACIENTE'), async (req: Request, 
     console.error(e);
     res.status(500).json({ erro: 'Erro ao criar pagamento com cartão' });
   }
-});
+  }
+);
 
 // =====================
 // WEBHOOK STRIPE
 // =====================
 
-r.post('/webhook/stripe', raw({ type: 'application/json' }), async (req: Request, res: Response) => {
+r.post('/webhook/stripe', async (req: Request, res: Response) => {
   try {
     if (!stripe) {
       return res.status(503).json({ erro: 'Stripe não configurado' });
@@ -190,10 +198,34 @@ r.post('/webhook/stripe', raw({ type: 'application/json' }), async (req: Request
           where: { transacaoId: paymentIntent.id },
         });
         if (pagamento) {
-          await prisma.consulta.update({
+          const consulta = await prisma.consulta.update({
             where: { id: pagamento.consultaId },
             data: { status: 'ACEITA' },
+            include: {
+              paciente: { include: { usuario: { select: { id: true, nome: true, email: true } } } },
+              medico: { include: { usuario: { select: { id: true, nome: true, email: true } } } },
+            },
           });
+
+          // Notificações (best-effort)
+          try {
+            await emailService.enviarPagamentoConfirmado(
+              consulta.paciente.usuario.email,
+              consulta.paciente.usuario.nome,
+              pagamento.valorCentavos / 100,
+              consulta.medico.usuario.nome,
+              new Date(consulta.data)
+            );
+
+            await enviarPushParaUsuario({
+              usuarioId: consulta.paciente.usuario.id,
+              titulo: 'Pagamento confirmado',
+              corpo: 'Seu pagamento foi confirmado',
+              data: { tipo: 'PAGAMENTO_CONFIRMADO', consultaId: consulta.id },
+            });
+          } catch (e) {
+            console.warn('Falha ao enviar notificações de pagamento (Stripe):', e);
+          }
         }
         break;
 
@@ -242,10 +274,34 @@ r.post('/pix/:pagamentoId/confirmar', authMiddleware, requireRole('ADMIN'), asyn
     });
 
     // Atualizar status da consulta
-    await prisma.consulta.update({
+    const consulta = await prisma.consulta.update({
       where: { id: pagamento.consultaId },
       data: { status: 'ACEITA' },
+      include: {
+        paciente: { include: { usuario: { select: { id: true, nome: true, email: true } } } },
+        medico: { include: { usuario: { select: { id: true, nome: true, email: true } } } },
+      },
     });
+
+    // Notificações (best-effort)
+    try {
+      await emailService.enviarPagamentoConfirmado(
+        consulta.paciente.usuario.email,
+        consulta.paciente.usuario.nome,
+        atualizado.valorCentavos / 100,
+        consulta.medico.usuario.nome,
+        new Date(consulta.data)
+      );
+
+      await enviarPushParaUsuario({
+        usuarioId: consulta.paciente.usuario.id,
+        titulo: 'Pagamento confirmado',
+        corpo: 'Seu pagamento foi confirmado',
+        data: { tipo: 'PAGAMENTO_CONFIRMADO', consultaId: consulta.id },
+      });
+    } catch (e) {
+      console.warn('Falha ao enviar notificações de pagamento (PIX):', e);
+    }
 
     res.json({ mensagem: 'Pagamento confirmado', pagamento: atualizado });
   } catch (e) {
