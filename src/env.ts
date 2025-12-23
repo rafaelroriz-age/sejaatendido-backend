@@ -2,7 +2,7 @@ import 'dotenv/config';
 
 export const ENV = {
   // Servidor
-  PORTA: Number(process.env.PORTA || 3001),
+  PORTA: Number(process.env.PORTA || process.env.PORT || 3001),
   NODE_ENV: process.env.NODE_ENV || 'development',
 
   // CORS
@@ -35,7 +35,7 @@ export const ENV = {
   FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:3000',
 
   // Backend URL público (para links que apontam direto para o backend)
-  BACKEND_URL: process.env.BACKEND_URL || `http://localhost:${Number(process.env.PORTA || 3001)}`,
+  BACKEND_URL: process.env.BACKEND_URL || `http://localhost:${Number(process.env.PORTA || process.env.PORT || 3001)}`,
 
   // Jobs (emails automáticos)
   ENABLE_EMAIL_JOBS: (process.env.ENABLE_EMAIL_JOBS || '').toLowerCase() === 'true',
@@ -47,6 +47,9 @@ export const ENV = {
 
   // Database
   DATABASE_URL: process.env.DATABASE_URL || '',
+
+  // MongoDB (chat)
+  MONGODB_URI: process.env.MONGODB_URI || '',
 };
 
 // Fail-fast em produção para evitar segredos fracos/padrão

@@ -11,9 +11,11 @@ import pagamentoRoutes from './routes/pagamentos.js';
 import usuarioRoutes from './routes/usuarios.js';
 import emailRoutes from './routes/emails.js';
 import notificacoesRoutes from './routes/notificacoes.js';
+import chatRoutes from './routes/chat.js';
 import { errorHandler } from './middlewares/error.middleware.js';
 import { ENV } from './env.js';
 import { startEmailJobs } from './jobs/email.jobs.js';
+import { connectMongoDB } from './utils/mongodb.js';
 
 dotenv.config();
 
@@ -86,12 +88,16 @@ app.use('/pagamentos', pagamentoRoutes);
 app.use('/usuarios', usuarioRoutes);
 app.use('/emails', emailRoutes);
 app.use('/notificacoes', notificacoesRoutes);
+app.use('/api/chat', chatRoutes);
 
 // Error handler (deve ser o último middleware)
 app.use(errorHandler);
 
 // Jobs internos (node-cron)
 startEmailJobs();
+
+// MongoDB (chat) - conecta se configurado
+connectMongoDB({ exitOnFail: ENV.NODE_ENV === 'production' && !!ENV.MONGODB_URI });
 
 const PORT = ENV.PORTA || 3001;
 app.listen(PORT, () => {

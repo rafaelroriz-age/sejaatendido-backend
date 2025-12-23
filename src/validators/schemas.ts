@@ -95,3 +95,12 @@ export const enviarEmailSchema = z.object({
   assunto: z.string().min(1, 'Assunto obrigatório'),
   corpo: z.string().min(1, 'Corpo do email obrigatório'),
 });
+
+// =====================
+// CHAT SCHEMAS (MongoDB)
+// =====================
+export const chatEnviarMensagemSchema = z.object({
+  appointmentId: z.string().uuid('ID da consulta inválido'),
+  recipientId: z.string().uuid('ID do destinatário inválido'),
+  message: z.string().min(1, 'Mensagem obrigatória').max(2000, 'Mensagem muito longa'),
+});

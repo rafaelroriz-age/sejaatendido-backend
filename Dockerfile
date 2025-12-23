@@ -1,5 +1,5 @@
 # Stage 1: build
-FROM node:18-bullseye-slim AS builder
+FROM node:20-slim AS builder
 LABEL maintainer="GitHub Copilot"
 WORKDIR /usr/src/app
 ENV NODE_ENV=development
@@ -26,7 +26,7 @@ COPY . .
 RUN npm run build
 
 # Stage 2: runtime
-FROM node:18-bullseye-slim AS runner
+FROM node:20-slim AS runner
 WORKDIR /usr/src/app
 ENV NODE_ENV=production
 ENV PORT=3001

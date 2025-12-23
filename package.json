@@ -20,6 +20,7 @@
     "google-auth-library": "^10.3.0",
     "helmet": "^7.2.0",
     "jsonwebtoken": "^9.0.2",
+    "mongoose": "^9.0.2",
     "node-cron": "^4.2.1",
     "nodemailer": "^7.0.11",
     "stripe": "^16.9.0",
