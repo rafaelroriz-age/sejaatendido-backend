@@ -133,7 +133,7 @@ const templates = {
             <div><strong>Motivo:</strong> ${motivo}</div>
           </div>
           <center>
-            <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/medico/consultas" class="button">
+            <a href="${ENV.FRONTEND_URL}/medico/consultas" class="button">
               Ver Consultas
             </a>
           </center>
@@ -242,7 +242,7 @@ const templates = {
             ${motivo ? `<div><strong>Motivo:</strong> ${motivo}</div>` : ''}
           </div>
           <center>
-            <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/medicos" class="button">
+            <a href="${ENV.FRONTEND_URL}/medicos" class="button">
               Agendar Nova Consulta
             </a>
           </center>
@@ -503,7 +503,7 @@ const templates = {
           <h2>Olá, ${nome}!</h2>
           <p>Recebemos uma solicitação para redefinir sua senha. Se foi você, clique no botão abaixo:</p>
           <center>
-            <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/resetar-senha?token=${token}" class="button">
+            <a href="${ENV.FRONTEND_URL}/resetar-senha?token=${token}" class="button">
               Redefinir Senha
             </a>
           </center>
@@ -541,7 +541,7 @@ const templates = {
           <h2>Sua conta foi aprovada!</h2>
           <p>Você agora faz parte da nossa rede de médicos. Já pode começar a receber consultas.</p>
           <center>
-            <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/medico/dashboard" class="button">
+            <a href="${ENV.FRONTEND_URL}/medico/dashboard" class="button">
               Acessar Dashboard
             </a>
           </center>

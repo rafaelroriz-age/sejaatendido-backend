@@ -32,10 +32,10 @@ export const ENV = {
   SMTP_PASS: process.env.SMTP_PASS || '',
 
   // Frontend URL (para links em emails)
-  FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:3000',
+  FRONTEND_URL: process.env.FRONTEND_URL || '',
 
   // Backend URL público (para links que apontam direto para o backend)
-  BACKEND_URL: process.env.BACKEND_URL || `http://localhost:${Number(process.env.PORTA || process.env.PORT || 3001)}`,
+  BACKEND_URL: process.env.BACKEND_URL || 'https://sejaatendido.api.br',
 
   // Jobs (emails automáticos)
   ENABLE_EMAIL_JOBS: (process.env.ENABLE_EMAIL_JOBS || '').toLowerCase() === 'true',

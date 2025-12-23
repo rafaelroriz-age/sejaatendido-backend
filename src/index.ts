@@ -101,6 +101,7 @@ connectMongoDB({ exitOnFail: ENV.NODE_ENV === 'production' && !!ENV.MONGODB_URI 
 
 const PORT = ENV.PORTA || 3001;
 app.listen(PORT, () => {
-  console.log(`🚀 API rodando em http://localhost:${PORT}`);
-  console.log(`📊 Health check: http://localhost:${PORT}/health`);
+  const baseUrl = ENV.BACKEND_URL || `http://0.0.0.0:${PORT}`;
+  console.log(`🚀 API no ar: ${baseUrl}`);
+  console.log(`📊 Health check: ${baseUrl.replace(/\/$/, '')}/health`);
 });
