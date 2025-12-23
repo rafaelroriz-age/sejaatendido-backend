@@ -14,6 +14,9 @@ RUN apt-get update \
 		g++ \
 	&& rm -rf /var/lib/apt/lists/*
 
+# node:20-slim vem com npm v10; este repo usa lockfile gerado com npm v11
+RUN npm install -g npm@11.7.0
+
 # Copia arquivos de dependências e instala
 COPY package*.json ./
 # Prisma schema precisa existir durante o npm ci para o postinstall do @prisma/client gerar o client
