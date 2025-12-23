@@ -5,6 +5,8 @@ import { validate } from '../middlewares/validate.middleware';
 import { atualizarMedicoSchema, atualizarConsultaSchema } from '../validators/schemas';
 import emailService from '../services/email.service';
 import { enviarPushParaUsuario } from '../services/push.service';
+import { gerarTokenEHash } from '../utils/secureTokens';
+import { ENV } from '../env';
 
 const r = Router();
 
@@ -206,11 +208,25 @@ r.patch(
         return res.status(403).json({ erro: 'Consulta não encontrada ou sem permissão' });
       }
 
+      const now = new Date();
+      const willAccept = status === 'ACEITA';
+      const cancelData = willAccept
+        ? (() => {
+            const { token, tokenHash } = gerarTokenEHash();
+            const expiraEm = new Date(now.getTime() + ENV.CANCEL_TOKEN_TTL_HORAS * 60 * 60 * 1000);
+            return { token, tokenHash, expiraEm };
+          })()
+        : null;
+
       const atualizada = await prisma.consulta.update({
         where: { id: consultaId },
         data: {
           ...(status && { status }),
           ...(meetLink && { meetLink }),
+          ...(cancelData && {
+            cancelTokenHash: cancelData.tokenHash,
+            cancelTokenExpiraEm: cancelData.expiraEm,
+          }),
         },
         include: {
           paciente: {
@@ -226,12 +242,17 @@ r.patch(
       // Notificações (best-effort)
       try {
         if (status === 'ACEITA') {
+          const cancelarLink = cancelData
+            ? `${ENV.BACKEND_URL}/emails/cancelar-consulta?token=${encodeURIComponent(cancelData.token)}`
+            : undefined;
+
           await emailService.enviarConsultaConfirmada(
             atualizada.paciente.usuario.email,
             atualizada.paciente.usuario.nome,
             medico.usuario.nome,
             new Date(atualizada.data),
-            atualizada.meetLink || meetLink
+            atualizada.meetLink || meetLink,
+            cancelarLink
           );
 
           await enviarPushParaUsuario({

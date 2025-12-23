@@ -5,6 +5,7 @@ import jwt from 'jsonwebtoken';
 import { ENV } from '../env';
 import emailService from '../services/email.service';
 import { OAuth2Client } from 'google-auth-library';
+import { gerarTokenEHash } from '../utils/secureTokens';
 
 function gerarToken(id:string, tipo:string){ return jwt.sign({ id, tipo }, ENV.JWT_SEGREDO, { expiresIn: '15d' }); }
 
@@ -26,7 +27,18 @@ export async function registro(req:Request, res:Response){
 
     // Enviar confirmação de email (best-effort)
     try {
-      const token = jwt.sign({ id: user.id, tipo: 'confirmacao-email' }, ENV.JWT_SEGREDO, { expiresIn: '24h' });
+      const { token, tokenHash } = gerarTokenEHash();
+      const expiraEm = new Date(Date.now() + ENV.EMAIL_VERIFICACAO_TTL_HORAS * 60 * 60 * 1000);
+
+      await prisma.usuario.update({
+        where: { id: user.id },
+        data: {
+          emailVerificacaoTokenHash: tokenHash,
+          emailVerificacaoExpiraEm: expiraEm,
+          emailVerificacaoEnviadoEm: new Date(),
+        },
+      });
+
       await emailService.enviarConfirmacaoEmail(user.email, user.nome, token);
     } catch (e) {
       console.warn('Falha ao enviar confirmação de email:', e);

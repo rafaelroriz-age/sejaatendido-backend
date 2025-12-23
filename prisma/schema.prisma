@@ -13,6 +13,9 @@ model Usuario {
   senhaHash String
   tipo      TipoUsuario
   emailConfirmado Boolean @default(false)
+  emailVerificacaoTokenHash String?
+  emailVerificacaoExpiraEm  DateTime?
+  emailVerificacaoEnviadoEm DateTime?
   medico    Medico?
   paciente  Paciente?
   deviceTokens DeviceToken[]
@@ -51,6 +54,11 @@ model Consulta {
   motivo     String
   status     StatusConsulta @default(PENDENTE)
   meetLink   String?
+  lembrete15mEnviado   Boolean  @default(false)
+  lembreteDiarioEnviado Boolean @default(false)
+  emailAvaliacaoEnviado Boolean @default(false)
+  cancelTokenHash       String?
+  cancelTokenExpiraEm   DateTime?
   pagamento  Pagamento?
   medico     Medico   @relation(fields:[medicoId], references:[id])
   paciente   Paciente @relation(fields:[pacienteId], references:[id])

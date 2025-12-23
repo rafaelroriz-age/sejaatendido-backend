@@ -6,8 +6,133 @@ import bcrypt from 'bcryptjs';
 import { ENV } from '../env';
 import emailService from '../services/email.service';
 import { enviarPushParaUsuario } from '../services/push.service';
+import { run15MinReminders, runDailyReminders, runRatingEmails, runAutoConcludeConsultations } from '../jobs/email.jobs';
+import { gerarTokenEHash, sha256Hex } from '../utils/secureTokens';
 
 const r = Router();
+
+function cronOrAdminGuard(req: Request, res: Response, next: any) {
+  const secret = req.header('x-cron-secret');
+  if (ENV.CRON_SECRET && secret === ENV.CRON_SECRET) return next();
+  return authMiddleware(req as any, res as any, () => requireRole('ADMIN')(req as any, res as any, next));
+}
+
+function addHours(date: Date, hours: number): Date {
+  return new Date(date.getTime() + hours * 60 * 60 * 1000);
+}
+
+async function cancelarConsultaPorToken(token: string) {
+  const tokenHash = sha256Hex(token);
+  const now = new Date();
+
+  const consulta = await prisma.consulta.findFirst({
+    where: {
+      cancelTokenHash: tokenHash,
+      cancelTokenExpiraEm: { gt: now },
+    },
+    include: {
+      medico: { include: { usuario: { select: { id: true, nome: true } } } },
+      paciente: { include: { usuario: { select: { id: true, nome: true, email: true } } } },
+    },
+  });
+
+  if (!consulta) {
+    return { ok: false as const, status: 400 as const, erro: 'Token inválido ou expirado' };
+  }
+
+  if (consulta.status === 'CONCLUIDA') {
+    return { ok: false as const, status: 400 as const, erro: 'Não é possível cancelar consulta concluída' };
+  }
+
+  // Mantém a mesma regra já aplicada no cancelamento autenticado
+  const horasAntecedencia = (new Date(consulta.data).getTime() - Date.now()) / (1000 * 60 * 60);
+  if (horasAntecedencia < 24 && consulta.status === 'ACEITA') {
+    return {
+      ok: false as const,
+      status: 400 as const,
+      erro: 'Cancelamento deve ser feito com no mínimo 24 horas de antecedência',
+    };
+  }
+
+  const atualizada = await prisma.consulta.update({
+    where: { id: consulta.id },
+    data: {
+      status: 'CANCELADA',
+      cancelTokenHash: null,
+      cancelTokenExpiraEm: null,
+    },
+  });
+
+  // Notificações (best-effort)
+  try {
+    await emailService.enviarConsultaCancelada(
+      consulta.paciente.usuario.email,
+      consulta.paciente.usuario.nome,
+      consulta.medico.usuario.nome,
+      new Date(consulta.data)
+    );
+  } catch {
+    // best-effort
+  }
+
+  try {
+    await enviarPushParaUsuario({
+      usuarioId: consulta.medico.usuario.id,
+      titulo: 'Consulta cancelada',
+      corpo: `${consulta.paciente.usuario.nome} cancelou a consulta`,
+      data: { tipo: 'CONSULTA_CANCELADA', consultaId: consulta.id },
+    });
+  } catch {
+    // best-effort
+  }
+
+  return { ok: true as const, status: 200 as const, consulta: atualizada };
+}
+
+async function confirmarEmailPorToken(token: string) {
+  const now = new Date();
+  const tokenHash = sha256Hex(String(token));
+
+  const usuario = await prisma.usuario.findFirst({
+    where: {
+      emailVerificacaoTokenHash: tokenHash,
+      emailVerificacaoExpiraEm: { gt: now },
+    },
+    select: { id: true, emailConfirmado: true },
+  });
+
+  if (usuario) {
+    if (usuario.emailConfirmado) return { ok: true as const, already: true as const };
+
+    await prisma.usuario.update({
+      where: { id: usuario.id },
+      data: {
+        emailConfirmado: true,
+        emailVerificacaoTokenHash: null,
+        emailVerificacaoExpiraEm: null,
+      },
+    });
+
+    return { ok: true as const, already: false as const };
+  }
+
+  // Compat: tokens antigos (JWT)
+  const decoded = jwt.verify(String(token), ENV.JWT_SEGREDO) as any;
+  if (decoded.tipo !== 'confirmacao-email') {
+    return { ok: false as const, erro: 'Token inválido' };
+  }
+
+  await prisma.usuario.update({
+    where: { id: decoded.id },
+    data: {
+      emailConfirmado: true,
+      emailVerificacaoTokenHash: null,
+      emailVerificacaoExpiraEm: null,
+    },
+  });
+
+  return { ok: true as const, already: false as const };
+}
 
 // =====================
 // JOB: LEMBRETES DE CONSULTA (CRON)
@@ -15,68 +140,14 @@ const r = Router();
 // Proteção: header x-cron-secret = ENV.CRON_SECRET OU usuário ADMIN autenticado
 r.post(
   '/jobs/lembretes-consultas',
-  (req, res, next) => {
-    const secret = req.header('x-cron-secret');
-    if (ENV.CRON_SECRET && secret === ENV.CRON_SECRET) return next();
-    return authMiddleware(req as any, res as any, () => requireRole('ADMIN')(req as any, res as any, next));
-  },
+  cronOrAdminGuard,
   async (req: Request, res: Response) => {
     try {
-      // Amanhã (00:00 até 23:59:59)
-      const now = new Date();
-      const inicio = new Date(now);
-      inicio.setDate(inicio.getDate() + 1);
-      inicio.setHours(0, 0, 0, 0);
-
-      const fim = new Date(inicio);
-      fim.setHours(23, 59, 59, 999);
-
-      const consultas = await prisma.consulta.findMany({
-        where: {
-          status: 'ACEITA',
-          data: { gte: inicio, lte: fim },
-        },
-        include: {
-          paciente: { include: { usuario: { select: { id: true, nome: true, email: true } } } },
-          medico: { include: { usuario: { select: { id: true, nome: true } } } },
-        },
-      });
-
-      let emailsEnviados = 0;
-      let pushEnviados = 0;
-
-      for (const c of consultas) {
-        try {
-          const ok = await emailService.enviarLembreteConsulta(
-            c.paciente.usuario.email,
-            c.paciente.usuario.nome,
-            c.medico.usuario.nome,
-            new Date(c.data),
-            c.meetLink || undefined
-          );
-          if (ok) emailsEnviados += 1;
-        } catch (e) {
-          console.warn('Falha ao enviar lembrete email:', e);
-        }
-
-        try {
-          const r = await enviarPushParaUsuario({
-            usuarioId: c.paciente.usuario.id,
-            titulo: 'Lembrete de consulta',
-            corpo: 'Sua consulta é amanhã',
-            data: { tipo: 'LEMBRETE_CONSULTA', consultaId: c.id },
-          });
-          if (r.ok) pushEnviados += r.enviado;
-        } catch (e) {
-          console.warn('Falha ao enviar lembrete push:', e);
-        }
-      }
-
+      const result = await runDailyReminders();
       res.json({
-        intervalo: { inicio: inicio.toISOString(), fim: fim.toISOString() },
-        consultas: consultas.length,
-        emailsEnviados,
-        pushEnviados,
+        ...result,
+        // compat com payload antigo
+        consultas: result.consultasProcessadas,
       });
     } catch (e) {
       console.error(e);
@@ -84,6 +155,45 @@ r.post(
     }
   }
 );
+
+// =====================
+// JOB: LEMBRETE 15 MIN (CRON)
+// =====================
+r.post('/jobs/lembretes-15m', cronOrAdminGuard, async (req: Request, res: Response) => {
+  try {
+    const result = await run15MinReminders();
+    res.json(result);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ erro: 'Erro ao enviar lembretes 15m' });
+  }
+});
+
+// =====================
+// JOB: EMAIL DE AVALIAÇÃO (CRON)
+// =====================
+r.post('/jobs/avaliacao', cronOrAdminGuard, async (req: Request, res: Response) => {
+  try {
+    const result = await runRatingEmails();
+    res.json(result);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ erro: 'Erro ao enviar emails de avaliação' });
+  }
+});
+
+// =====================
+// JOB: CONCLUIR CONSULTAS (CRON)
+// =====================
+r.post('/jobs/concluir-consultas', cronOrAdminGuard, async (req: Request, res: Response) => {
+  try {
+    const result = await runAutoConcludeConsultations();
+    res.json(result);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ erro: 'Erro ao concluir consultas' });
+  }
+});
 
 // =====================
 // SOLICITAR CONFIRMAÇÃO DE EMAIL
@@ -100,9 +210,28 @@ r.post('/confirmar-email/enviar', authMiddleware, async (req: Request, res: Resp
       return res.status(404).json({ erro: 'Usuário não encontrado' });
     }
 
-    // Gerar token de confirmação (válido por 24h)
-    const token = jwt.sign({ id: usuario.id, tipo: 'confirmacao-email' }, ENV.JWT_SEGREDO, {
-      expiresIn: '24h',
+    if (usuario.emailConfirmado) {
+      return res.json({ mensagem: 'Email já está confirmado' });
+    }
+
+    // Anti-abuso: não reenviar com muita frequência
+    if (usuario.emailVerificacaoEnviadoEm) {
+      const deltaMs = Date.now() - new Date(usuario.emailVerificacaoEnviadoEm).getTime();
+      if (deltaMs < 2 * 60 * 1000) {
+        return res.status(429).json({ erro: 'Aguarde um pouco antes de solicitar outro email' });
+      }
+    }
+
+    const { token, tokenHash } = gerarTokenEHash();
+    const expiraEm = addHours(new Date(), ENV.EMAIL_VERIFICACAO_TTL_HORAS);
+
+    await prisma.usuario.update({
+      where: { id: usuario.id },
+      data: {
+        emailVerificacaoTokenHash: tokenHash,
+        emailVerificacaoExpiraEm: expiraEm,
+        emailVerificacaoEnviadoEm: new Date(),
+      },
     });
 
     await emailService.enviarConfirmacaoEmail(usuario.email, usuario.nome, token);
@@ -125,21 +254,119 @@ r.post('/confirmar-email', async (req: Request, res: Response) => {
       return res.status(400).json({ erro: 'Token não fornecido' });
     }
 
-    const decoded = jwt.verify(token, ENV.JWT_SEGREDO) as any;
+    const result = await confirmarEmailPorToken(String(token));
+    if (!result.ok) return res.status(400).json({ erro: result.erro || 'Token inválido ou expirado' });
 
-    if (decoded.tipo !== 'confirmacao-email') {
-      return res.status(400).json({ erro: 'Token inválido' });
-    }
-
-    await prisma.usuario.update({
-      where: { id: decoded.id },
-      data: { emailConfirmado: true },
-    });
-
-    res.json({ mensagem: 'Email confirmado com sucesso' });
+    return res.json({ mensagem: result.already ? 'Email já está confirmado' : 'Email confirmado com sucesso' });
   } catch (e) {
     console.error(e);
     res.status(400).json({ erro: 'Token inválido ou expirado' });
+  }
+});
+
+r.get('/confirmar-email', async (req: Request, res: Response) => {
+  try {
+    const token = String(req.query?.token || '');
+    if (!token) return res.status(400).send('<h3>Token não fornecido</h3>');
+
+    const result = await confirmarEmailPorToken(token);
+    if (!result.ok) return res.status(400).send(`<h3>${result.erro || 'Token inválido ou expirado'}</h3>`);
+
+    return res.status(200).send(`<h3>${result.already ? 'Email já está confirmado.' : 'Email confirmado com sucesso.'}</h3>`);
+  } catch (e) {
+    console.error(e);
+    res.status(400).send('<h3>Token inválido ou expirado</h3>');
+  }
+});
+
+// =====================
+// CANCELAR CONSULTA POR TOKEN (LINK)
+// =====================
+r.post('/cancelar-consulta', async (req: Request, res: Response) => {
+  try {
+    const token = String(req.body?.token || '');
+    if (!token) return res.status(400).json({ erro: 'Token não fornecido' });
+
+    const result = await cancelarConsultaPorToken(token);
+    if (!result.ok) return res.status(result.status).json({ erro: result.erro });
+
+    res.json({ mensagem: 'Consulta cancelada com sucesso', consulta: result.consulta });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ erro: 'Erro ao cancelar consulta' });
+  }
+});
+
+r.get('/cancelar-consulta', async (req: Request, res: Response) => {
+  try {
+    const token = String(req.query?.token || '');
+    if (!token) return res.status(400).send('<h3>Token não fornecido</h3>');
+
+    const result = await cancelarConsultaPorToken(token);
+    if (!result.ok) return res.status(result.status).send(`<h3>${result.erro}</h3>`);
+
+    res.status(200).send('<h3>Consulta cancelada com sucesso.</h3>');
+  } catch (e) {
+    console.error(e);
+    res.status(500).send('<h3>Erro ao cancelar consulta</h3>');
+  }
+});
+
+// =====================
+// REEMITIR LINK DE CANCELAMENTO (PACIENTE)
+// =====================
+r.post('/cancelar-consulta/enviar', authMiddleware, requireRole('PACIENTE'), async (req: Request, res: Response) => {
+  try {
+    const userId = req.userId!;
+    const consultaId = String(req.body?.consultaId || '');
+    if (!consultaId) return res.status(400).json({ erro: 'consultaId é obrigatório' });
+
+    const paciente = await prisma.paciente.findUnique({ where: { usuarioId: userId } });
+    if (!paciente) return res.status(404).json({ erro: 'Paciente não encontrado' });
+
+    const consulta = await prisma.consulta.findUnique({
+      where: { id: consultaId },
+      include: {
+        medico: { include: { usuario: { select: { nome: true } } } },
+        paciente: { include: { usuario: { select: { nome: true, email: true } } } },
+      },
+    });
+
+    if (!consulta || consulta.pacienteId !== paciente.id) {
+      return res.status(403).json({ erro: 'Consulta não encontrada ou sem permissão' });
+    }
+
+    if (consulta.status === 'CONCLUIDA') {
+      return res.status(400).json({ erro: 'Não é possível cancelar consulta concluída' });
+    }
+    if (consulta.status === 'CANCELADA') {
+      return res.status(400).json({ erro: 'Consulta já está cancelada' });
+    }
+
+    // Sempre reemite token (não dá pra recuperar o token a partir do hash).
+    // Isso invalida links anteriores por segurança.
+    const { token, tokenHash } = gerarTokenEHash();
+    const expiraEm = addHours(new Date(), ENV.CANCEL_TOKEN_TTL_HORAS);
+
+    await prisma.consulta.update({
+      where: { id: consulta.id },
+      data: { cancelTokenHash: tokenHash, cancelTokenExpiraEm: expiraEm },
+    });
+
+    const cancelarLink = `${ENV.BACKEND_URL}/emails/cancelar-consulta?token=${encodeURIComponent(token)}`;
+
+    await emailService.enviarLinkCancelamentoConsulta(
+      consulta.paciente.usuario.email,
+      consulta.paciente.usuario.nome,
+      consulta.medico.usuario.nome,
+      new Date(consulta.data),
+      cancelarLink
+    );
+
+    res.json({ mensagem: 'Link de cancelamento enviado por email' });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ erro: 'Erro ao enviar link de cancelamento' });
   }
 });
 

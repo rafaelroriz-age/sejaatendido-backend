@@ -13,6 +13,7 @@ import emailRoutes from './routes/emails';
 import notificacoesRoutes from './routes/notificacoes';
 import { errorHandler } from './middlewares/error.middleware';
 import { ENV } from './env';
+import { startEmailJobs } from './jobs/email.jobs';
 
 dotenv.config();
 
@@ -88,6 +89,9 @@ app.use('/notificacoes', notificacoesRoutes);
 
 // Error handler (deve ser o último middleware)
 app.use(errorHandler);
+
+// Jobs internos (node-cron)
+startEmailJobs();
 
 const PORT = ENV.PORTA || 3001;
 app.listen(PORT, () => {

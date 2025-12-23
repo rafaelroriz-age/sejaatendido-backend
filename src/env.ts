@@ -34,6 +34,17 @@ export const ENV = {
   // Frontend URL (para links em emails)
   FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:3000',
 
+  // Backend URL público (para links que apontam direto para o backend)
+  BACKEND_URL: process.env.BACKEND_URL || `http://localhost:${Number(process.env.PORTA || 3001)}`,
+
+  // Jobs (emails automáticos)
+  ENABLE_EMAIL_JOBS: (process.env.ENABLE_EMAIL_JOBS || '').toLowerCase() === 'true',
+  CONSULTA_DURACAO_MINUTOS: Number(process.env.CONSULTA_DURACAO_MINUTOS || 60),
+
+  // Tokens (hash no banco)
+  EMAIL_VERIFICACAO_TTL_HORAS: Number(process.env.EMAIL_VERIFICACAO_TTL_HORAS || 24),
+  CANCEL_TOKEN_TTL_HORAS: Number(process.env.CANCEL_TOKEN_TTL_HORAS || 24),
+
   // Database
   DATABASE_URL: process.env.DATABASE_URL || '',
 };
