@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
-import { authMiddleware } from '../middlewares/auth.middleware';
-import { prisma } from '../utils/prisma';
-import { enviarPushParaUsuario } from '../services/push.service';
+import { authMiddleware } from '../middlewares/auth.middleware.js';
+import { prisma } from '../utils/prisma.js';
+import { enviarPushParaUsuario } from '../services/push.service.js';
 
 const r = Router();
 

@@ -1,8 +1,8 @@
 import cron from 'node-cron';
-import { prisma } from '../utils/prisma';
-import emailService from '../services/email.service';
-import { enviarPushParaUsuario } from '../services/push.service';
-import { ENV } from '../env';
+import { prisma } from '../utils/prisma.js';
+import emailService from '../services/email.service.js';
+import { enviarPushParaUsuario } from '../services/push.service.js';
+import { ENV } from '../env.js';
 
 type JobResult = {
   ok: boolean;

@@ -1,13 +1,13 @@
 import { Router, Request, Response } from 'express';
-import { prisma } from '../utils/prisma';
-import { authMiddleware, requireRole } from '../middlewares/auth.middleware';
+import { prisma } from '../utils/prisma.js';
+import { authMiddleware, requireRole } from '../middlewares/auth.middleware.js';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
-import { ENV } from '../env';
-import emailService from '../services/email.service';
-import { enviarPushParaUsuario } from '../services/push.service';
-import { run15MinReminders, runDailyReminders, runRatingEmails, runAutoConcludeConsultations } from '../jobs/email.jobs';
-import { gerarTokenEHash, sha256Hex } from '../utils/secureTokens';
+import { ENV } from '../env.js';
+import emailService from '../services/email.service.js';
+import { enviarPushParaUsuario } from '../services/push.service.js';
+import { run15MinReminders, runDailyReminders, runRatingEmails, runAutoConcludeConsultations } from '../jobs/email.jobs.js';
+import { gerarTokenEHash, sha256Hex } from '../utils/secureTokens.js';
 
 const r = Router();
 

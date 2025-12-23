@@ -1,11 +1,11 @@
 import { Request, Response } from 'express';
-import { prisma } from '../utils/prisma';
+import { prisma } from '../utils/prisma.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { ENV } from '../env';
-import emailService from '../services/email.service';
+import { ENV } from '../env.js';
+import emailService from '../services/email.service.js';
 import { OAuth2Client } from 'google-auth-library';
-import { gerarTokenEHash } from '../utils/secureTokens';
+import { gerarTokenEHash } from '../utils/secureTokens.js';
 
 function gerarToken(id:string, tipo:string){ return jwt.sign({ id, tipo }, ENV.JWT_SEGREDO, { expiresIn: '15d' }); }
 

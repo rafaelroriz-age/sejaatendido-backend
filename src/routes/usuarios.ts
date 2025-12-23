@@ -1,8 +1,8 @@
 import { Router, Request, Response } from 'express';
-import { prisma } from '../utils/prisma';
-import { authMiddleware } from '../middlewares/auth.middleware';
-import { validate } from '../middlewares/validate.middleware';
-import { atualizarUsuarioSchema, alterarSenhaSchema } from '../validators/schemas';
+import { prisma } from '../utils/prisma.js';
+import { authMiddleware } from '../middlewares/auth.middleware.js';
+import { validate } from '../middlewares/validate.middleware.js';
+import { atualizarUsuarioSchema, alterarSenhaSchema } from '../validators/schemas.js';
 import bcrypt from 'bcryptjs';
 
 const r = Router();

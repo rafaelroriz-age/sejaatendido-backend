@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import { registro, login, loginGoogle } from '../controllers/auth.controller';
-import { validate } from '../middlewares/validate.middleware';
-import { loginSchema, loginGoogleSchema, registroSchema } from '../validators/schemas';
+import { registro, login, loginGoogle } from '../controllers/auth.controller.js';
+import { validate } from '../middlewares/validate.middleware.js';
+import { loginSchema, loginGoogleSchema, registroSchema } from '../validators/schemas.js';
 
 const r = Router();
 

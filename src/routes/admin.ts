@@ -1,9 +1,9 @@
 import { Router, Request, Response } from 'express';
-import { prisma } from '../utils/prisma';
-import { authMiddleware, requireRole } from '../middlewares/auth.middleware';
-import emailService from '../services/email.service';
-import { validate } from '../middlewares/validate.middleware';
-import { adminAtualizarUsuarioSchema, adminCriarUsuarioSchema } from '../validators/schemas';
+import { prisma } from '../utils/prisma.js';
+import { authMiddleware, requireRole } from '../middlewares/auth.middleware.js';
+import emailService from '../services/email.service.js';
+import { validate } from '../middlewares/validate.middleware.js';
+import { adminAtualizarUsuarioSchema, adminCriarUsuarioSchema } from '../validators/schemas.js';
 import bcrypt from 'bcryptjs';
 
 const r = Router();

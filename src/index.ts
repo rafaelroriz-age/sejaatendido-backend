@@ -3,17 +3,17 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
-import authRoutes from './routes/auth';
-import medicoRoutes from './routes/medicos';
-import pacienteRoutes from './routes/pacientes';
-import adminRoutes from './routes/admin';
-import pagamentoRoutes from './routes/pagamentos';
-import usuarioRoutes from './routes/usuarios';
-import emailRoutes from './routes/emails';
-import notificacoesRoutes from './routes/notificacoes';
-import { errorHandler } from './middlewares/error.middleware';
-import { ENV } from './env';
-import { startEmailJobs } from './jobs/email.jobs';
+import authRoutes from './routes/auth.js';
+import medicoRoutes from './routes/medicos.js';
+import pacienteRoutes from './routes/pacientes.js';
+import adminRoutes from './routes/admin.js';
+import pagamentoRoutes from './routes/pagamentos.js';
+import usuarioRoutes from './routes/usuarios.js';
+import emailRoutes from './routes/emails.js';
+import notificacoesRoutes from './routes/notificacoes.js';
+import { errorHandler } from './middlewares/error.middleware.js';
+import { ENV } from './env.js';
+import { startEmailJobs } from './jobs/email.jobs.js';
 
 dotenv.config();
 

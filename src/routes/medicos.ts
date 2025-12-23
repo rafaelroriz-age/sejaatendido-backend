@@ -1,12 +1,12 @@
 import { Router, Request, Response } from 'express';
-import { prisma } from '../utils/prisma';
-import { authMiddleware, requireRole } from '../middlewares/auth.middleware';
-import { validate } from '../middlewares/validate.middleware';
-import { atualizarMedicoSchema, atualizarConsultaSchema } from '../validators/schemas';
-import emailService from '../services/email.service';
-import { enviarPushParaUsuario } from '../services/push.service';
-import { gerarTokenEHash } from '../utils/secureTokens';
-import { ENV } from '../env';
+import { prisma } from '../utils/prisma.js';
+import { authMiddleware, requireRole } from '../middlewares/auth.middleware.js';
+import { validate } from '../middlewares/validate.middleware.js';
+import { atualizarMedicoSchema, atualizarConsultaSchema } from '../validators/schemas.js';
+import emailService from '../services/email.service.js';
+import { enviarPushParaUsuario } from '../services/push.service.js';
+import { gerarTokenEHash } from '../utils/secureTokens.js';
+import { ENV } from '../env.js';
 
 const r = Router();
 

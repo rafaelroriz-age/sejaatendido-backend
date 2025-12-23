@@ -1,4 +1,4 @@
-import { prisma } from './utils/prisma';
+import { prisma } from './utils/prisma.js';
 import bcrypt from 'bcryptjs';
 async function run(){ 
   const admin = await prisma.usuario.upsert({ where:{ email:'admin@seja.com' }, update:{}, create:{ nome:'Admin', email:'admin@seja.com', senhaHash: await bcrypt.hash('admin123',10), tipo:'ADMIN' }});

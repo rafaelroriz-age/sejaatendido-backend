@@ -1,12 +1,12 @@
 import { Router, Request, Response } from 'express';
-import { prisma } from '../utils/prisma';
-import { authMiddleware, requireRole } from '../middlewares/auth.middleware';
-import { validate } from '../middlewares/validate.middleware';
-import { criarPagamentoCartaoSchema, criarPagamentoPixSchema } from '../validators/schemas';
+import { prisma } from '../utils/prisma.js';
+import { authMiddleware, requireRole } from '../middlewares/auth.middleware.js';
+import { validate } from '../middlewares/validate.middleware.js';
+import { criarPagamentoCartaoSchema, criarPagamentoPixSchema } from '../validators/schemas.js';
 import Stripe from 'stripe';
-import { ENV } from '../env';
-import emailService from '../services/email.service';
-import { enviarPushParaUsuario } from '../services/push.service';
+import { ENV } from '../env.js';
+import emailService from '../services/email.service.js';
+import { enviarPushParaUsuario } from '../services/push.service.js';
 
 const r = Router();
 

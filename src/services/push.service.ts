@@ -1,6 +1,6 @@
 import admin from 'firebase-admin';
-import { ENV } from '../env';
-import { prisma } from '../utils/prisma';
+import { ENV } from '../env.js';
+import { prisma } from '../utils/prisma.js';
 
 let initialized = false;
 

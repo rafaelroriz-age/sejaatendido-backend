@@ -1,5 +1,5 @@
 import nodemailer from 'nodemailer';
-import { ENV } from '../env';
+import { ENV } from '../env.js';
 
 // Configuração do transporter
 const transporter = nodemailer.createTransport({

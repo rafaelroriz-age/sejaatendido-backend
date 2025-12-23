@@ -1,10 +1,10 @@
 import { Router, Request, Response } from 'express';
-import { prisma } from '../utils/prisma';
-import { authMiddleware, requireRole } from '../middlewares/auth.middleware';
-import { validate } from '../middlewares/validate.middleware';
-import { criarConsultaSchema } from '../validators/schemas';
-import emailService from '../services/email.service';
-import { enviarPushParaUsuario } from '../services/push.service';
+import { prisma } from '../utils/prisma.js';
+import { authMiddleware, requireRole } from '../middlewares/auth.middleware.js';
+import { validate } from '../middlewares/validate.middleware.js';
+import { criarConsultaSchema } from '../validators/schemas.js';
+import emailService from '../services/email.service.js';
+import { enviarPushParaUsuario } from '../services/push.service.js';
 
 const r = Router();
 
