@@ -24,13 +24,13 @@ services:
     depends_on:
       - db
       - mongodb
+    env_file:
+      - .env.local
     environment:
-      NODE_ENV: development
-      PORTA: 3001
+      # URLs internas para a rede do docker-compose (sobrescrevem .env.local)
       DATABASE_URL: postgresql://usuario:senha@db:5432/sejaatendido?schema=public
+      DIRECT_URL: postgresql://usuario:senha@db:5432/sejaatendido
       MONGODB_URI: mongodb://mongodb:27017/sejaatendido
-      CORS_ORIGIN: "*"
-      JWT_SEGREDO: "dev-secret-change-in-production"
     ports:
       - "3001:3001"
 

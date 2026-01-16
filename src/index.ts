@@ -1,6 +1,5 @@
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import authRoutes from './routes/auth.js';
@@ -17,18 +16,23 @@ import { ENV } from './env.js';
 import { startEmailJobs } from './jobs/email.jobs.js';
 import { connectMongoDB } from './utils/mongodb.js';
 
-dotenv.config();
-
 const app = express();
+
+// Remove header que revela tecnologia
+app.disable('x-powered-by');
 
 // Importante para deploy atrás de proxy (Render, Nginx, etc.)
 app.set('trust proxy', 1);
 
 // Middlewares globais
 const allowAllOrigins = ENV.CORS_ORIGIN === '*';
+const allowedOrigins = allowAllOrigins
+  ? undefined
+  : ENV.CORS_ORIGIN.split(',').map((o) => o.trim()).filter(Boolean);
+
 app.use(
   cors({
-    origin: allowAllOrigins ? true : ENV.CORS_ORIGIN,
+    origin: allowAllOrigins ? true : allowedOrigins,
     // Se aceitar qualquer origin, NÃO use cookies/credenciais
     credentials: allowAllOrigins ? false : true,
   })
