@@ -13,19 +13,19 @@ const senhaForteSchema = z
 // AUTH SCHEMAS
 // =====================
 export const registroSchema = z.object({
-  nome: z.string().min(3, 'Nome deve ter no mínimo 3 caracteres'),
-  email: z.string().email('Email inválido'),
+  nome: z.string().trim().min(3, 'Nome deve ter no mínimo 3 caracteres'),
+  email: z.string().trim().email('Email inválido'),
   senha: senhaForteSchema,
   tipo: z.enum(['PACIENTE', 'MEDICO']),
 });
 
 export const loginSchema = z.object({
-  email: z.string().email('Email inválido'),
+  email: z.string().trim().email('Email inválido'),
   senha: z.string().min(1, 'Senha obrigatória'),
 });
 
 export const recuperarSenhaSchema = z.object({
-  email: z.string().email('Email inválido'),
+  email: z.string().trim().email('Email inválido'),
 });
 
 export const resetarSenhaSchema = z.object({
@@ -43,6 +43,36 @@ export const logoutSchema = z.object({
 
 export const loginGoogleSchema = z.object({
   idToken: z.string().min(1, 'idToken é obrigatório'),
+});
+
+// =====================
+// COMMON PARAMS/QUERY SCHEMAS
+// =====================
+const uuidSchema = z.string().uuid('ID inválido');
+
+export const idParamSchema = z.object({
+  id: uuidSchema,
+});
+
+export const userIdParamSchema = z.object({
+  userId: uuidSchema,
+});
+
+export const profissionalIdParamSchema = z.object({
+  profissionalId: uuidSchema,
+});
+
+export const chatIdParamSchema = z.object({
+  chatId: uuidSchema,
+});
+
+export const consultaIdBodySchema = z.object({
+  consultaId: uuidSchema,
+});
+
+export const listProfissionaisQuerySchema = z.object({
+  especialidade: z.string().trim().max(80).optional(),
+  nome: z.string().trim().max(80).optional(),
 });
 
 // =====================
@@ -71,8 +101,8 @@ export const atualizarMedicoSchema = z.object({
 // USUÁRIO SCHEMAS
 // =====================
 export const atualizarUsuarioSchema = z.object({
-  nome: z.string().min(3, 'Nome deve ter no mínimo 3 caracteres').optional(),
-  email: z.string().email('Email inválido').optional(),
+  nome: z.string().trim().min(3, 'Nome deve ter no mínimo 3 caracteres').optional(),
+  email: z.string().trim().email('Email inválido').optional(),
 });
 
 export const alterarSenhaSchema = z.object({

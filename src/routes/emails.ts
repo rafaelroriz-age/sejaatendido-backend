@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import rateLimit from 'express-rate-limit';
 import { prisma } from '../utils/prisma.js';
 import { authMiddleware, requireRole } from '../middlewares/auth.middleware.js';
 import jwt from 'jsonwebtoken';
@@ -11,6 +12,22 @@ import { gerarTokenEHash, sha256Hex } from '../utils/secureTokens.js';
 import { recuperarSenhaSchema, resetarSenhaSchema } from '../validators/schemas.js';
 
 const r = Router();
+
+// Anti-abuse: limita endpoints sensíveis (evita brute force/spam)
+// Obs: não aplicado aos endpoints de jobs/admin.
+const emailSensitiveLimiter = rateLimit({
+  windowMs: 15 * 60_000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const passwordResetLimiter = rateLimit({
+  windowMs: 60 * 60_000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 function cronOrAdminGuard(req: Request, res: Response, next: any) {
   const secret = req.header('x-cron-secret');
@@ -199,7 +216,7 @@ r.post('/jobs/concluir-consultas', cronOrAdminGuard, async (req: Request, res: R
 // =====================
 // SOLICITAR CONFIRMAÇÃO DE EMAIL
 // =====================
-r.post('/confirmar-email/enviar', authMiddleware, async (req: Request, res: Response) => {
+r.post('/confirmar-email/enviar', emailSensitiveLimiter, authMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = req.userId!;
 
@@ -247,7 +264,7 @@ r.post('/confirmar-email/enviar', authMiddleware, async (req: Request, res: Resp
 // =====================
 // CONFIRMAR EMAIL
 // =====================
-r.post('/confirmar-email', async (req: Request, res: Response) => {
+r.post('/confirmar-email', emailSensitiveLimiter, async (req: Request, res: Response) => {
   try {
     const { token } = req.body;
 
@@ -265,7 +282,7 @@ r.post('/confirmar-email', async (req: Request, res: Response) => {
   }
 });
 
-r.get('/confirmar-email', async (req: Request, res: Response) => {
+r.get('/confirmar-email', emailSensitiveLimiter, async (req: Request, res: Response) => {
   try {
     const token = String(req.query?.token || '');
     if (!token) return res.status(400).send('<h3>Token não fornecido</h3>');
@@ -374,7 +391,7 @@ r.post('/cancelar-consulta/enviar', authMiddleware, requireRole('PACIENTE'), asy
 // =====================
 // SOLICITAR RECUPERAÇÃO DE SENHA
 // =====================
-r.post('/recuperar-senha', async (req: Request, res: Response) => {
+r.post('/recuperar-senha', passwordResetLimiter, async (req: Request, res: Response) => {
   try {
     const { email } = await recuperarSenhaSchema.parseAsync(req.body);
 
@@ -416,7 +433,7 @@ r.post('/recuperar-senha', async (req: Request, res: Response) => {
 // =====================
 // RESETAR SENHA
 // =====================
-r.post('/resetar-senha', async (req: Request, res: Response) => {
+r.post('/resetar-senha', passwordResetLimiter, async (req: Request, res: Response) => {
   try {
     const { token, novaSenha } = await resetarSenhaSchema.parseAsync(req.body);
     const now = new Date();

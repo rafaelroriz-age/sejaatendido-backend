@@ -1,13 +1,20 @@
 import { Router } from 'express';
 import { authMiddleware, requireRole } from '../middlewares/auth.middleware.js';
-import { validate } from '../middlewares/validate.middleware.js';
+import { validate, validateRequest } from '../middlewares/validate.middleware.js';
 import {
   atualizarAvaliacaoSchema,
+  atualizarUsuarioSchema,
   chatMensagemApiSchema,
+  chatIdParamSchema,
+  consultaIdBodySchema,
   consultaLinkVideoSchema,
   consultaStatusSchema,
+  idParamSchema,
   criarAvaliacaoSchema,
   criarConsultaSchema,
+  listProfissionaisQuerySchema,
+  profissionalIdParamSchema,
+  userIdParamSchema,
   usuarioSearchSchema,
 } from '../validators/schemas.js';
 import { prisma } from '../utils/prisma.js';
@@ -49,16 +56,21 @@ api.get('/usuarios/search', authMiddleware, async (req, res) => {
 });
 
 api.get('/usuarios/profissionais', async (req, res) => {
-  const { especialidade, nome } = req.query;
+  const parsed = listProfissionaisQuerySchema.safeParse({
+    especialidade: req.query.especialidade,
+    nome: req.query.nome,
+  });
+
+  if (!parsed.success) {
+    return res.status(400).json({ erro: 'Dados inválidos', detalhes: parsed.error.issues });
+  }
+
+  const { especialidade, nome } = parsed.data;
   const medicos = await prisma.medico.findMany({
     where: {
       aprovado: true,
-      ...(typeof especialidade === 'string' && especialidade
-        ? { especialidades: { has: especialidade } }
-        : {}),
-      ...(typeof nome === 'string' && nome
-        ? { usuario: { nome: { contains: nome, mode: 'insensitive' } } }
-        : {}),
+      ...(especialidade ? { especialidades: { has: especialidade } } : {}),
+      ...(nome ? { usuario: { nome: { contains: nome, mode: 'insensitive' } } } : {}),
     },
     include: { usuario: { select: { id: true, nome: true } } },
     take: 100,
@@ -66,7 +78,7 @@ api.get('/usuarios/profissionais', async (req, res) => {
   res.json(medicos);
 });
 
-api.get('/usuarios/:id', authMiddleware, async (req, res) => {
+api.get('/usuarios/:id', authMiddleware, validateRequest({ params: idParamSchema }), async (req, res) => {
   const targetId = String(req.params.id);
   const requesterId = req.userId!;
 
@@ -92,7 +104,12 @@ api.get('/usuarios/:id', authMiddleware, async (req, res) => {
   res.json(usuario);
 });
 
-api.put('/usuarios/:id', authMiddleware, async (req, res) => {
+api.put(
+  '/usuarios/:id',
+  authMiddleware,
+  validateRequest({ params: idParamSchema }),
+  validate(atualizarUsuarioSchema),
+  async (req, res) => {
   const targetId = String(req.params.id);
   const requesterId = req.userId!;
 
@@ -117,9 +134,10 @@ api.put('/usuarios/:id', authMiddleware, async (req, res) => {
   });
 
   res.json(atualizado);
-});
+  }
+);
 
-api.delete('/usuarios/:id', authMiddleware, async (req, res) => {
+api.delete('/usuarios/:id', authMiddleware, validateRequest({ params: idParamSchema }), async (req, res) => {
   const targetId = String(req.params.id);
   const requesterId = req.userId!;
 
@@ -192,7 +210,7 @@ api.post('/consultas/agendar', authMiddleware, requireRole('PACIENTE'), validate
   res.status(201).json(consulta);
 });
 
-api.get('/consultas/:id', authMiddleware, async (req, res) => {
+api.get('/consultas/:id', authMiddleware, validateRequest({ params: idParamSchema }), async (req, res) => {
   const userId = req.userId!;
   const consulta = await prisma.consulta.findUnique({
     where: { id: String(req.params.id) },
@@ -214,7 +232,7 @@ api.get('/consultas/:id', authMiddleware, async (req, res) => {
   res.json(consulta);
 });
 
-api.get('/consultas/usuario/:userId', authMiddleware, async (req, res) => {
+api.get('/consultas/usuario/:userId', authMiddleware, validateRequest({ params: userIdParamSchema }), async (req, res) => {
   const targetUserId = String(req.params.userId);
   const requesterId = req.userId!;
 
@@ -246,7 +264,13 @@ api.get('/consultas/usuario/:userId', authMiddleware, async (req, res) => {
   return res.json([]);
 });
 
-api.put('/consultas/:id/status', authMiddleware, requireRole('MEDICO', 'ADMIN'), validate(consultaStatusSchema), async (req, res) => {
+api.put(
+  '/consultas/:id/status',
+  authMiddleware,
+  requireRole('MEDICO', 'ADMIN'),
+  validateRequest({ params: idParamSchema }),
+  validate(consultaStatusSchema),
+  async (req, res) => {
   const consultaId = String(req.params.id);
   const { status } = req.body as { status: any };
 
@@ -262,9 +286,10 @@ api.put('/consultas/:id/status', authMiddleware, requireRole('MEDICO', 'ADMIN'),
 
   const atualizada = await prisma.consulta.update({ where: { id: consultaId }, data: { status } });
   res.json(atualizada);
-});
+  }
+);
 
-api.post('/consultas/:id/cancelar', authMiddleware, async (req, res) => {
+api.post('/consultas/:id/cancelar', authMiddleware, validateRequest({ params: idParamSchema }), async (req, res) => {
   const consultaId = String(req.params.id);
   const userId = req.userId!;
 
@@ -287,7 +312,13 @@ api.post('/consultas/:id/cancelar', authMiddleware, async (req, res) => {
   res.json({ mensagem: 'Consulta cancelada', consulta: atualizada });
 });
 
-api.post('/consultas/:id/link-video', authMiddleware, requireRole('MEDICO', 'ADMIN'), validate(consultaLinkVideoSchema), async (req, res) => {
+api.post(
+  '/consultas/:id/link-video',
+  authMiddleware,
+  requireRole('MEDICO', 'ADMIN'),
+  validateRequest({ params: idParamSchema }),
+  validate(consultaLinkVideoSchema),
+  async (req, res) => {
   const consultaId = String(req.params.id);
   const { meetLink } = req.body as { meetLink: string };
 
@@ -303,7 +334,8 @@ api.post('/consultas/:id/link-video', authMiddleware, requireRole('MEDICO', 'ADM
 
   const atualizada = await prisma.consulta.update({ where: { id: consultaId }, data: { meetLink } });
   res.json(atualizada);
-});
+  }
+);
 
 // =====================
 // AVALIAÇÕES
@@ -337,7 +369,7 @@ api.post('/avaliacoes/criar', authMiddleware, requireRole('PACIENTE'), validate(
   res.status(201).json(avaliacao);
 });
 
-api.get('/avaliacoes/profissional/:profissionalId', async (req, res) => {
+api.get('/avaliacoes/profissional/:profissionalId', validateRequest({ params: profissionalIdParamSchema }), async (req, res) => {
   const medicoId = String(req.params.profissionalId);
   const avaliacoes = await prisma.avaliacao.findMany({
     where: { medicoId },
@@ -347,7 +379,13 @@ api.get('/avaliacoes/profissional/:profissionalId', async (req, res) => {
   res.json(avaliacoes);
 });
 
-api.put('/avaliacoes/:id', authMiddleware, requireRole('PACIENTE', 'ADMIN'), validate(atualizarAvaliacaoSchema), async (req, res) => {
+api.put(
+  '/avaliacoes/:id',
+  authMiddleware,
+  requireRole('PACIENTE', 'ADMIN'),
+  validateRequest({ params: idParamSchema }),
+  validate(atualizarAvaliacaoSchema),
+  async (req, res) => {
   const avaliacaoId = String(req.params.id);
   const { nota, comentario } = req.body as { nota?: number; comentario?: string };
 
@@ -367,9 +405,15 @@ api.put('/avaliacoes/:id', authMiddleware, requireRole('PACIENTE', 'ADMIN'), val
   });
 
   res.json(atualizada);
-});
+  }
+);
 
-api.delete('/avaliacoes/:id', authMiddleware, requireRole('PACIENTE', 'ADMIN'), async (req, res) => {
+api.delete(
+  '/avaliacoes/:id',
+  authMiddleware,
+  requireRole('PACIENTE', 'ADMIN'),
+  validateRequest({ params: idParamSchema }),
+  async (req, res) => {
   const avaliacaoId = String(req.params.id);
   const avaliacao = await prisma.avaliacao.findUnique({ where: { id: avaliacaoId } });
   if (!avaliacao) return res.status(404).json({ erro: 'Avaliação não encontrada' });
@@ -383,7 +427,8 @@ api.delete('/avaliacoes/:id', authMiddleware, requireRole('PACIENTE', 'ADMIN'), 
 
   await prisma.avaliacao.delete({ where: { id: avaliacaoId } });
   res.json({ mensagem: 'Avaliação deletada' });
-});
+  }
+);
 
 // =====================
 // CHATS (Mongo; chatId = consultaId)
@@ -414,9 +459,8 @@ async function assertChatPermission(params: { appointmentId: string; userId: str
   return { ok: true as const, medicoUsuarioId: consulta.medico.usuarioId, pacienteUsuarioId: consulta.paciente.usuarioId };
 }
 
-api.post('/chats/iniciar', authMiddleware, async (req, res) => {
-  const { consultaId } = req.body as { consultaId?: string };
-  if (!consultaId) return res.status(400).json({ erro: 'consultaId é obrigatório' });
+api.post('/chats/iniciar', authMiddleware, validate(consultaIdBodySchema), async (req, res) => {
+  const { consultaId } = req.body as { consultaId: string };
 
   const perm = await assertChatPermission({ appointmentId: consultaId, userId: req.userId!, userTipo: req.userTipo });
   if (!perm.ok) return res.status(perm.status).json({ erro: perm.erro });
@@ -449,7 +493,7 @@ api.get('/chats/usuario/:userId', authMiddleware, async (req, res) => {
   return res.json({ chats: consultas.map((c) => ({ chatId: c.id, consultaId: c.id, data: c.data, status: c.status })) });
 });
 
-api.get('/chats/:chatId/mensagens', authMiddleware, async (req, res) => {
+api.get('/chats/:chatId/mensagens', authMiddleware, validateRequest({ params: chatIdParamSchema }), async (req, res) => {
   if (!isMongoConnected()) {
     return res.status(503).json({ erro: 'Chat indisponível (MongoDB desconectado)' });
   }
@@ -465,7 +509,12 @@ api.get('/chats/:chatId/mensagens', authMiddleware, async (req, res) => {
   res.json(messages);
 });
 
-api.post('/chats/:chatId/mensagens', authMiddleware, validate(chatMensagemApiSchema), async (req, res) => {
+api.post(
+  '/chats/:chatId/mensagens',
+  authMiddleware,
+  validateRequest({ params: chatIdParamSchema }),
+  validate(chatMensagemApiSchema),
+  async (req, res) => {
   if (!isMongoConnected()) {
     return res.status(503).json({ erro: 'Chat indisponível (MongoDB desconectado)' });
   }
@@ -484,9 +533,10 @@ api.post('/chats/:chatId/mensagens', authMiddleware, validate(chatMensagemApiSch
 
   const saved = await chatService.saveMessage({ appointmentId: chatId, senderId, recipientId, message });
   res.status(201).json(saved);
-});
+  }
+);
 
-api.put('/chats/:chatId/marcar-lidas', authMiddleware, async (req, res) => {
+api.put('/chats/:chatId/marcar-lidas', authMiddleware, validateRequest({ params: chatIdParamSchema }), async (req, res) => {
   // Não há read receipts no modelo atual; endpoint mantido como no-op compatível
   const chatId = String(req.params.chatId);
   const perm = await assertChatPermission({ appointmentId: chatId, userId: req.userId!, userTipo: req.userTipo });
