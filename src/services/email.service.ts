@@ -508,7 +508,7 @@ const templates = {
             </a>
           </center>
           <p>Se você não solicitou a redefinição de senha, ignore este email.</p>
-          <p>Este link expira em 1 hora.</p>
+          <p>Este link expira em ${ENV.PASSWORD_RESET_TTL_HORAS} hora(s).</p>
           <div class="footer">
             <p>© ${new Date().getFullYear()} SejaAtendido. Todos os direitos reservados.</p>
           </div>

@@ -8,6 +8,7 @@ import emailService from '../services/email.service.js';
 import { enviarPushParaUsuario } from '../services/push.service.js';
 import { run15MinReminders, runDailyReminders, runRatingEmails, runAutoConcludeConsultations } from '../jobs/email.jobs.js';
 import { gerarTokenEHash, sha256Hex } from '../utils/secureTokens.js';
+import { recuperarSenhaSchema, resetarSenhaSchema } from '../validators/schemas.js';
 
 const r = Router();
 
@@ -375,24 +376,32 @@ r.post('/cancelar-consulta/enviar', authMiddleware, requireRole('PACIENTE'), asy
 // =====================
 r.post('/recuperar-senha', async (req: Request, res: Response) => {
   try {
-    const { email } = req.body;
+    const { email } = await recuperarSenhaSchema.parseAsync(req.body);
 
-    if (!email) {
-      return res.status(400).json({ erro: 'Email é obrigatório' });
-    }
-
-    const usuario = await prisma.usuario.findUnique({
-      where: { email },
-    });
+    const usuario = await prisma.usuario.findUnique({ where: { email } });
 
     // Sempre retornar sucesso para não revelar se o email existe
     if (!usuario) {
       return res.json({ mensagem: 'Se o email existir, você receberá instruções para redefinir sua senha' });
     }
 
-    // Gerar token de recuperação (válido por 1h)
-    const token = jwt.sign({ id: usuario.id, tipo: 'recuperar-senha' }, ENV.JWT_SEGREDO, {
-      expiresIn: '1h',
+    // Emite token aleatório (one-time) armazenado como hash no banco
+    // (mantém a URL com ?token=... como já usado pelo frontend)
+    const { token, tokenHash } = gerarTokenEHash();
+    const expiraEm = addHours(new Date(), ENV.PASSWORD_RESET_TTL_HORAS);
+
+    // Revoga tokens anteriores ainda válidos (um token ativo por vez)
+    await prisma.passwordResetToken.updateMany({
+      where: { usuarioId: usuario.id, usadoEm: null, expiraEm: { gt: new Date() } },
+      data: { usadoEm: new Date() },
+    });
+
+    await prisma.passwordResetToken.create({
+      data: {
+        usuarioId: usuario.id,
+        tokenHash,
+        expiraEm,
+      },
     });
 
     await emailService.enviarRecuperarSenha(usuario.email, usuario.nome, token);
@@ -409,30 +418,45 @@ r.post('/recuperar-senha', async (req: Request, res: Response) => {
 // =====================
 r.post('/resetar-senha', async (req: Request, res: Response) => {
   try {
-    const { token, novaSenha } = req.body;
+    const { token, novaSenha } = await resetarSenhaSchema.parseAsync(req.body);
+    const now = new Date();
 
-    if (!token || !novaSenha) {
-      return res.status(400).json({ erro: 'Token e nova senha são obrigatórios' });
+    // 1) Fluxo novo (DB token)
+    const tokenHash = sha256Hex(token);
+    const prt = await prisma.passwordResetToken.findFirst({
+      where: { tokenHash, usadoEm: null, expiraEm: { gt: now } },
+      select: { id: true, usuarioId: true },
+    });
+
+    if (prt) {
+      const senhaHash = await bcrypt.hash(novaSenha, 10);
+
+      await prisma.$transaction([
+        prisma.usuario.update({ where: { id: prt.usuarioId }, data: { senhaHash } }),
+        prisma.passwordResetToken.update({ where: { id: prt.id }, data: { usadoEm: now } }),
+        // Revoga refresh tokens para forçar re-login
+        prisma.refreshToken.updateMany({
+          where: { usuarioId: prt.usuarioId, revogadoEm: null },
+          data: { revogadoEm: now },
+        }),
+      ]);
+
+      return res.json({ mensagem: 'Senha redefinida com sucesso' });
     }
 
-    if (novaSenha.length < 6) {
-      return res.status(400).json({ erro: 'Senha deve ter no mínimo 6 caracteres' });
-    }
-
+    // 2) Compat: tokens antigos (JWT)
     const decoded = jwt.verify(token, ENV.JWT_SEGREDO) as any;
-
     if (decoded.tipo !== 'recuperar-senha') {
       return res.status(400).json({ erro: 'Token inválido' });
     }
 
     const senhaHash = await bcrypt.hash(novaSenha, 10);
+    await prisma.$transaction([
+      prisma.usuario.update({ where: { id: decoded.id }, data: { senhaHash } }),
+      prisma.refreshToken.updateMany({ where: { usuarioId: decoded.id, revogadoEm: null }, data: { revogadoEm: now } }),
+    ]);
 
-    await prisma.usuario.update({
-      where: { id: decoded.id },
-      data: { senhaHash },
-    });
-
-    res.json({ mensagem: 'Senha redefinida com sucesso' });
+    return res.json({ mensagem: 'Senha redefinida com sucesso' });
   } catch (e) {
     console.error(e);
     res.status(400).json({ erro: 'Token inválido ou expirado' });

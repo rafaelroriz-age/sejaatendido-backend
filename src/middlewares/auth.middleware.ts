@@ -1,10 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { ENV } from '../env.js';
+import { isAccessTokenBlocked } from '../utils/authTokens.js';
 
 interface TokenPayload {
-  id: string;
+  sub: string;
   tipo: string;
+  jti: string;
 }
 
 declare global {
@@ -17,7 +19,8 @@ declare global {
 }
 
 export function authMiddleware(req: Request, res: Response, next: NextFunction) {
-  try {
+  (async () => {
+    try {
     const authHeader = req.headers.authorization;
 
     if (!authHeader) {
@@ -34,15 +37,31 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
       return res.status(401).json({ erro: 'Token malformado' });
     }
 
-    const decoded = jwt.verify(token, ENV.JWT_SEGREDO) as TokenPayload;
+    const decoded = jwt.verify(token, ENV.JWT_SEGREDO) as any;
+    const payload: TokenPayload = {
+      sub: String(decoded.sub ?? ''),
+      tipo: String(decoded.tipo ?? ''),
+      jti: String(decoded.jti ?? ''),
+    };
 
-    req.userId = decoded.id;
-    req.userTipo = decoded.tipo;
+    if (!payload.sub || !payload.tipo || !payload.jti) {
+      return res.status(401).json({ erro: 'Token inválido' });
+    }
 
-    next();
-  } catch (error) {
-    return res.status(401).json({ erro: 'Token inválido ou expirado' });
-  }
+      // Token blacklist (logout)
+      const blocked = await isAccessTokenBlocked(payload.jti);
+      if (blocked) {
+        return res.status(401).json({ erro: 'Token revogado' });
+      }
+
+      req.userId = payload.sub;
+      req.userTipo = payload.tipo;
+
+      return next();
+    } catch {
+      return res.status(401).json({ erro: 'Token inválido ou expirado' });
+    }
+  })();
 }
 
 export function requireRole(...roles: string[]) {

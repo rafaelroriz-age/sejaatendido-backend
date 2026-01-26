@@ -1,6 +1,9 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
 import { z } from 'zod';
-require('dotenv').config({ path: '.env.local' });
+
+// Prefer .env.local (docker-compose uses it), fallback to .env for local dev
+dotenv.config({ path: '.env.local' });
+dotenv.config({ path: '.env' });
 const NodeEnvSchema = z.enum(['development', 'test', 'production']);
 
 const EnvSchema = z
@@ -15,6 +18,14 @@ const EnvSchema = z
 
     // JWT
     JWT_SEGREDO: z.string().trim().min(1),
+    JWT_ACCESS_TOKEN_MINUTOS: z.coerce.number().int().positive().default(15),
+    JWT_REFRESH_TOKEN_DIAS: z.coerce.number().int().positive().default(30),
+
+    // Password reset
+    PASSWORD_RESET_TTL_HORAS: z.coerce.number().int().positive().default(2),
+
+    // Logging
+    LOG_LEVEL: z.enum(['error', 'warn', 'info', 'http', 'verbose', 'debug', 'silly']).default('info'),
 
     // Jobs/cron (protege endpoints de disparo automático)
     CRON_SECRET: z.string().default(''),
@@ -65,6 +76,10 @@ export const ENV = (() => {
     NODE_ENV: process.env.NODE_ENV,
     CORS_ORIGIN: process.env.CORS_ORIGIN,
     JWT_SEGREDO: process.env.JWT_SEGREDO,
+    JWT_ACCESS_TOKEN_MINUTOS: process.env.JWT_ACCESS_TOKEN_MINUTOS,
+    JWT_REFRESH_TOKEN_DIAS: process.env.JWT_REFRESH_TOKEN_DIAS,
+    PASSWORD_RESET_TTL_HORAS: process.env.PASSWORD_RESET_TTL_HORAS,
+    LOG_LEVEL: process.env.LOG_LEVEL,
     CRON_SECRET: process.env.CRON_SECRET,
     GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
@@ -99,6 +114,10 @@ export const ENV = (() => {
   if (env.NODE_ENV === 'production') {
     if (env.JWT_SEGREDO.length < 24) {
       throw new Error('JWT_SEGREDO fraco em produção. Defina um segredo forte (>= 24 chars).');
+    }
+
+    if (env.JWT_ACCESS_TOKEN_MINUTOS > 60) {
+      throw new Error('JWT_ACCESS_TOKEN_MINUTOS muito alto em produção. Use um valor <= 60.');
     }
 
     if (env.CORS_ORIGIN === '*') {

@@ -1,18 +1,44 @@
 import { z } from 'zod';
 
+const senhaForteSchema = z
+  .string()
+  .min(8, 'Senha deve ter no mínimo 8 caracteres')
+  .max(72, 'Senha deve ter no máximo 72 caracteres')
+  .refine((v) => /[A-Z]/.test(v), 'Senha deve conter letra maiúscula')
+  .refine((v) => /[a-z]/.test(v), 'Senha deve conter letra minúscula')
+  .refine((v) => /\d/.test(v), 'Senha deve conter número')
+  .refine((v) => /[^A-Za-z0-9]/.test(v), 'Senha deve conter caractere especial');
+
 // =====================
 // AUTH SCHEMAS
 // =====================
 export const registroSchema = z.object({
   nome: z.string().min(3, 'Nome deve ter no mínimo 3 caracteres'),
   email: z.string().email('Email inválido'),
-  senha: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
+  senha: senhaForteSchema,
   tipo: z.enum(['PACIENTE', 'MEDICO']),
 });
 
 export const loginSchema = z.object({
   email: z.string().email('Email inválido'),
   senha: z.string().min(1, 'Senha obrigatória'),
+});
+
+export const recuperarSenhaSchema = z.object({
+  email: z.string().email('Email inválido'),
+});
+
+export const resetarSenhaSchema = z.object({
+  token: z.string().min(1, 'Token é obrigatório'),
+  novaSenha: senhaForteSchema,
+});
+
+export const refreshTokenSchema = z.object({
+  refreshToken: z.string().min(20, 'refreshToken inválido'),
+});
+
+export const logoutSchema = z.object({
+  refreshToken: z.string().min(20, 'refreshToken inválido').optional(),
 });
 
 export const loginGoogleSchema = z.object({
@@ -51,7 +77,36 @@ export const atualizarUsuarioSchema = z.object({
 
 export const alterarSenhaSchema = z.object({
   senhaAtual: z.string().min(1, 'Senha atual obrigatória'),
-  novaSenha: z.string().min(6, 'Nova senha deve ter no mínimo 6 caracteres'),
+  novaSenha: senhaForteSchema,
+});
+
+export const usuarioSearchSchema = z.object({
+  q: z.string().trim().min(1, 'q é obrigatório').max(80),
+  especialidade: z.string().trim().max(80).optional(),
+});
+
+export const consultaStatusSchema = z.object({
+  status: z.enum(['PENDENTE', 'ACEITA', 'RECUSADA', 'CONCLUIDA', 'CANCELADA']),
+});
+
+export const consultaLinkVideoSchema = z.object({
+  meetLink: z.string().url('meetLink inválido'),
+});
+
+export const criarAvaliacaoSchema = z.object({
+  consultaId: z.string().uuid('consultaId inválido'),
+  nota: z.number().int().min(1).max(5),
+  comentario: z.string().trim().max(2000).optional(),
+});
+
+export const atualizarAvaliacaoSchema = z.object({
+  nota: z.number().int().min(1).max(5).optional(),
+  comentario: z.string().trim().max(2000).optional(),
+});
+
+export const chatMensagemApiSchema = z.object({
+  recipientId: z.string().uuid('recipientId inválido'),
+  message: z.string().min(1, 'Mensagem obrigatória').max(2000, 'Mensagem muito longa'),
 });
 
 export const adminCriarUsuarioSchema = z.object({

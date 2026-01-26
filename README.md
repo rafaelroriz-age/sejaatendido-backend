@@ -1,44 +1,78 @@
-# 🏥 Seja Atendido - Backend
-API REST para o aplicativo Seja Atendido.
-## 🛠️Tecnologias
-- Node.js
-- Express
-- PostgreSQL
-- Prisma ORM
-- JWT (autenticação)
+# 🏥 SejaAtendido — Backend
+
+API REST (Express + TypeScript + Prisma/Postgres) para o app SejaAtendido.
+
+## ✅ Recursos principais
+
+- Auth JWT com access token curto + refresh token rotacionado
+- Email: confirmação de email e reset de senha (rotas em `/emails/*`)
+- Segurança: Helmet, CORS por allowlist, rate limit
+- Observabilidade: Winston (logs estruturados) + `/health`
+- Swagger UI em `/docs` e OpenAPI em `/openapi.json`
+
 ## 📋 Pré-requisitos
-- Node.js &gt;= 18.x
-- PostgreSQL &gt;= 14.x
-- npm ou yarn
-## 🚀 Instalação
-# Clonar repositório
-git clone https://github.com/seu-usuario/sejaatendido-backend.git
-# Instalar dependências
-npm install
-# Configurar variáveis de ambiente
-cp .env.example .env
-# Editar .env com suas configurações
-# Executar migrações
-npx prisma migrate dev
-# Iniciar servidor
-[ ] Salvar o arquivo
-1.1.6 Criar README.md do Backend (8 min)
-[ ] Criar arquivo README.md na raiz do projeto
-[ ] Adicionar conteúdo inicial:
-npm run dev
-## 📁 Estrutura do Projeto
-src/
-├── controllers/
-├── routes/
-├── middlewares/
-├── services/
-└── utils/
-prisma/
-└── schema.prisma
-package.json
-## 🌿 Branches
-- main: produção (deploy automático)
-- dev: desenvolvimento (código estável para testes)
-- feature/*: novas funcionalidades
-## 📝 Status
-🚧 Em desenvolvimento
+
+- Node.js >= 18
+- PostgreSQL (local ou Supabase)
+- (Opcional) MongoDB para chat
+
+## 🚀 Rodar localmente
+
+1) Instalar dependências:
+
+`npm install`
+
+2) Configurar env:
+
+`cp .env.example .env`
+
+3) Rodar migrations e gerar client:
+
+`npx prisma migrate dev`
+
+4) Subir a API:
+
+`npm run dev`
+
+## 🧪 Testes
+
+`npm test`
+
+## 📚 Docs
+
+- Swagger UI: `GET /docs`
+- OpenAPI: `GET /openapi.json`
+
+## 🔌 Rotas (compat + /api)
+
+Este backend mantém rotas “legadas” (ex: `/auth/*`, `/usuarios/*`) e também expõe as rotas no padrão do app em `/api/*`.
+
+- Auth: `/api/auth/*`
+- Usuários: `/api/usuarios/*`
+- Consultas: `/api/consultas/*`
+- Avaliações: `/api/avaliacoes/*`
+- Chats: `/api/chats/*` (chatId = consultaId; MongoDB opcional)
+
+## 🐳 Docker
+
+Build:
+
+`docker build -t sejaatendido-backend .`
+
+Run:
+
+`docker run -p 3001:3001 --env-file .env sejaatendido-backend`
+
+## ☁️ Deploy (Render/Railway/Fly/VPS)
+
+- Configure as variáveis do `.env.example` na plataforma.
+- Rode migrations no ambiente de produção (ex: `npx prisma migrate deploy`).
+- Garanta `CORS_ORIGIN` sem `*` em produção.
+
+## 📁 Estrutura
+
+- `src/index.ts`: entrypoint
+- `src/routes/*`: rotas
+- `src/middlewares/*`: auth/validation/error
+- `src/services/*`: integrações (email/push/chat)
+- `prisma/schema.prisma`: schema e migrations

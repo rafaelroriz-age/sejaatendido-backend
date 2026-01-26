@@ -11,10 +11,14 @@ import usuarioRoutes from './routes/usuarios.js';
 import emailRoutes from './routes/emails.js';
 import notificacoesRoutes from './routes/notificacoes.js';
 import chatRoutes from './routes/chat.js';
+import apiRoutes from './routes/api.js';
 import { errorHandler } from './middlewares/error.middleware.js';
 import { ENV } from './env.js';
 import { startEmailJobs } from './jobs/email.jobs.js';
 import { connectMongoDB } from './utils/mongodb.js';
+import { logger, requestLogger } from './logger/winston.js';
+import swaggerUi from 'swagger-ui-express';
+import { openapi } from './openapi.js';
 
 const app = express();
 
@@ -43,6 +47,8 @@ app.use(
     crossOriginResourcePolicy: false,
   })
 );
+
+app.use(requestLogger());
 
 app.use(
   rateLimit({
@@ -83,8 +89,15 @@ app.get('/health', (req, res) => {
   res.json({ status: 'healthy' });
 });
 
+app.get('/openapi.json', (req, res) => {
+  res.json(openapi);
+});
+
+app.use('/docs', swaggerUi.serve, swaggerUi.setup(openapi));
+
 // Rotas
 app.use('/auth', authRoutes);
+app.use('/api/auth', authRoutes);
 app.use('/medicos', medicoRoutes);
 app.use('/paciente', pacienteRoutes);
 app.use('/admin', adminRoutes);
@@ -93,6 +106,7 @@ app.use('/usuarios', usuarioRoutes);
 app.use('/emails', emailRoutes);
 app.use('/notificacoes', notificacoesRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api', apiRoutes);
 
 // Error handler (deve ser o último middleware)
 app.use(errorHandler);
@@ -106,6 +120,5 @@ connectMongoDB({ exitOnFail: ENV.NODE_ENV === 'production' && !!ENV.MONGODB_URI 
 const PORT = ENV.PORTA || 3001;
 app.listen(PORT, () => {
   const baseUrl = ENV.BACKEND_URL || `http://0.0.0.0:${PORT}`;
-  console.log(`🚀 API no ar: ${baseUrl}`);
-  console.log(`📊 Health check: ${baseUrl.replace(/\/$/, '')}/health`);
+  logger.info('api_started', { baseUrl, health: `${baseUrl.replace(/\/$/, '')}/health` });
 });

@@ -21,6 +21,9 @@ model Usuario {
   medico    Medico?
   paciente  Paciente?
   deviceTokens DeviceToken[]
+  refreshTokens RefreshToken[]
+  accessTokenBlocklist AccessTokenBlocklist[]
+  passwordResetTokens PasswordResetToken[]
   criadoEm  DateTime @default(now())
 }
 
@@ -38,6 +41,7 @@ model Medico {
   aprovado       Boolean  @default(false)
   documentos     Documento[]
   consultas      Consulta[]
+  avaliacoes     Avaliacao[]
   usuario        Usuario   @relation(fields:[usuarioId], references:[id])
 }
 
@@ -46,6 +50,7 @@ model Paciente {
   usuarioId String @unique
   usuario   Usuario @relation(fields:[usuarioId], references:[id])
   consultas Consulta[]
+  avaliacoes Avaliacao[]
 }
 
 model Consulta {
@@ -62,8 +67,26 @@ model Consulta {
   cancelTokenHash       String?
   cancelTokenExpiraEm   DateTime?
   pagamento  Pagamento?
+  avaliacao Avaliacao?
   medico     Medico   @relation(fields:[medicoId], references:[id])
   paciente   Paciente @relation(fields:[pacienteId], references:[id])
+}
+
+model Avaliacao {
+  id         String   @id @default(uuid())
+  consultaId String   @unique
+  medicoId   String
+  pacienteId String
+  nota       Int
+  comentario String?
+  criadoEm   DateTime @default(now())
+
+  consulta   Consulta @relation(fields: [consultaId], references: [id], onDelete: Cascade)
+  medico     Medico   @relation(fields: [medicoId], references: [id], onDelete: Cascade)
+  paciente   Paciente @relation(fields: [pacienteId], references: [id], onDelete: Cascade)
+
+  @@index([medicoId])
+  @@index([pacienteId])
 }
 
 model Pagamento {
@@ -113,4 +136,44 @@ enum StatusPagamento {
   AGUARDANDO
   PAGO
   FALHOU
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  usuarioId String
+  tokenHash String   @unique
+  criadoEm  DateTime @default(now())
+  expiraEm  DateTime
+  revogadoEm DateTime?
+
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId])
+  @@index([expiraEm])
+}
+
+model AccessTokenBlocklist {
+  jti       String   @id
+  usuarioId String
+  expiraEm  DateTime
+  criadoEm  DateTime @default(now())
+
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId])
+  @@index([expiraEm])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  usuarioId String
+  tokenHash String   @unique
+  criadoEm  DateTime @default(now())
+  expiraEm  DateTime
+  usadoEm   DateTime?
+
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId])
+  @@index([expiraEm])
 }
