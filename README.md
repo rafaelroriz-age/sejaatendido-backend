@@ -42,6 +42,7 @@ API REST (Express + TypeScript + Prisma/Postgres) para o app SejaAtendido.
 
 - Swagger UI: `GET /docs`
 - OpenAPI: `GET /openapi.json`
+- Documentação técnica (SRS/Arquitetura/Backlog/Handoff): `docs/00-INDEX.md`
 
 ## 🔌 Rotas (compat + /api)
 
