@@ -19,6 +19,7 @@ import {
   searchLatestPaymentByExternalReference,
   verifyMpWebhookSignature,
 } from '../services/mercadopago.service.js';
+import { logger } from '../logger/winston.js';
 
 const r = Router();
 
@@ -145,18 +146,67 @@ r.get('/mercadopago/retorno', async (req: Request, res: Response) => {
 
 // Webhook Mercado Pago (topic: payment)
 r.post('/webhook/mercadopago', async (req: Request, res: Response) => {
+  const startTime = Date.now();
+
   try {
     if (!ENV.MERCADOPAGO_ACCESS_TOKEN) {
       return res.status(503).json({ erro: 'Mercado Pago não configurado' });
     }
 
+    const bodyAny = req.body as any;
+    const eventBodyId = bodyAny?.id != null ? String(bodyAny.id) : '';
+    const eventType = bodyAny?.type != null ? String(bodyAny.type) : '';
+    const eventAction = bodyAny?.action != null ? String(bodyAny.action) : '';
+
+    logger.info('mp_webhook_received', {
+      timestamp: new Date().toISOString(),
+      bodyId: eventBodyId || undefined,
+      type: eventType || undefined,
+      action: eventAction || undefined,
+      query: req.query,
+      headers: {
+        'x-request-id': typeof req.headers['x-request-id'] === 'string' ? req.headers['x-request-id'] : undefined,
+        'x-signature': typeof req.headers['x-signature'] === 'string' ? req.headers['x-signature'] : undefined,
+      },
+    });
+
     const queryDataId = typeof (req.query as any)['data.id'] === 'string' ? String((req.query as any)['data.id']) : '';
-    const bodyDataId = String((req.body as any)?.data?.id || '');
+    const bodyDataId = String(bodyAny?.data?.id || '');
     const paymentId = queryDataId || bodyDataId;
 
     // Sem paymentId não dá para buscar detalhes; retorna 200 para evitar retries infinitos
     if (!paymentId) {
       return res.json({ received: true });
+    }
+
+    // Idempotência por evento (quando body.id não vier, usa paymentId como chave)
+    const rawEventKey = eventBodyId || paymentId;
+    const eventKey = `${eventType || 'payment'}:${rawEventKey}`;
+
+    const jaProcessado = await prisma.mercadoPagoWebhookEvent.findUnique({ where: { eventId: eventKey } });
+    if (jaProcessado?.processado) {
+      logger.info('mp_webhook_already_processed', { eventId: eventKey, processadoEm: jaProcessado.processadoEm });
+      return res.status(200).json({ message: 'Já processado' });
+    }
+
+    if (!jaProcessado) {
+      try {
+        await prisma.mercadoPagoWebhookEvent.create({
+          data: {
+            eventId: eventKey,
+            type: eventType || null,
+            action: eventAction || null,
+            paymentId,
+            processado: false,
+          },
+        });
+      } catch {
+        const existing = await prisma.mercadoPagoWebhookEvent.findUnique({ where: { eventId: eventKey } });
+        if (existing?.processado) {
+          logger.info('mp_webhook_already_processed', { eventId: eventKey, processadoEm: existing.processadoEm });
+          return res.status(200).json({ message: 'Já processado' });
+        }
+      }
     }
 
     // Opcional: valida assinatura do webhook (se MERCADOPAGO_WEBHOOK_SECRET estiver configurado)
@@ -166,17 +216,29 @@ r.post('/webhook/mercadopago', async (req: Request, res: Response) => {
       dataId: paymentId,
     });
     if (!signatureCheck.ok) {
+      await prisma.mercadoPagoWebhookEvent.updateMany({
+        where: { eventId: eventKey },
+        data: { processado: true, processadoEm: new Date() },
+      });
       return res.status(signatureCheck.status).json({ erro: signatureCheck.erro });
     }
 
     const mp = await fetchPayment(paymentId);
     if (!mp.ok) {
+      await prisma.mercadoPagoWebhookEvent.updateMany({
+        where: { eventId: eventKey },
+        data: { processado: true, processadoEm: new Date() },
+      });
       return res.status(mp.status).json({ erro: mp.erro });
     }
 
     const payment = mp.payment;
     const externalRef = String(payment.external_reference || '');
     if (!externalRef) {
+      await prisma.mercadoPagoWebhookEvent.updateMany({
+        where: { eventId: eventKey },
+        data: { processado: true, processadoEm: new Date() },
+      });
       return res.json({ received: true });
     }
 
@@ -261,9 +323,20 @@ r.post('/webhook/mercadopago', async (req: Request, res: Response) => {
       }
     }
 
+    await prisma.mercadoPagoWebhookEvent.updateMany({
+      where: { eventId: eventKey },
+      data: { processado: true, processadoEm: new Date() },
+    });
+
+    logger.info('mp_webhook_processed', {
+      eventId: eventKey,
+      paymentId,
+      durationMs: Date.now() - startTime,
+    });
+
     return res.json({ received: true });
   } catch (e) {
-    console.error('Webhook Mercado Pago error:', e);
+    logger.error('mp_webhook_error', { error: e instanceof Error ? { message: e.message, stack: e.stack } : e });
     return res.status(200).json({ received: true });
   }
 });

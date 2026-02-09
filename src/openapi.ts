@@ -13,7 +13,9 @@ export const openapi = {
     { name: 'Auth' },
     { name: 'Consultas' },
     { name: 'Avaliacoes' },
+    { name: 'Pagamentos' },
     { name: 'Health' },
+    { name: 'System' },
   ],
   components: {
     securitySchemes: {
@@ -632,13 +634,30 @@ export const openapi = {
               'application/json': {
                 schema: {
                   type: 'object',
-                  properties: { status: { type: 'string' } },
-                  required: ['status'],
+                  properties: {
+                    status: { type: 'string', example: 'ok' },
+                    timestamp: { type: 'string', example: '2026-02-09T17:00:00.000Z' },
+                  },
+                  required: ['status', 'timestamp'],
                 },
-                example: { status: 'healthy' },
+                example: { status: 'ok', timestamp: '2026-02-09T17:00:00.000Z' },
               },
             },
           },
+        },
+      },
+    },
+
+    '/system/status': {
+      get: {
+        tags: ['System'],
+        summary: 'Status do sistema',
+        security: [],
+        responses: {
+          '200': {
+            description: 'Online',
+          },
+          '500': { $ref: '#/components/responses/BadRequest' },
         },
       },
     },

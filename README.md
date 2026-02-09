@@ -8,6 +8,7 @@ API REST (Express + TypeScript + Prisma/Postgres) para o app SejaAtendido.
 - Email: confirmação de email e reset de senha (rotas em `/emails/*`)
 - Segurança: Helmet, CORS por allowlist, rate limit
 - Observabilidade: Winston (logs estruturados) + `/health`
+- Status do sistema: `/system/status` (uptime + checagem do Postgres)
 - Swagger UI em `/docs` e OpenAPI em `/openapi.json`
 
 ## 📋 Pré-requisitos
@@ -29,6 +30,10 @@ API REST (Express + TypeScript + Prisma/Postgres) para o app SejaAtendido.
 3) Rodar migrations e gerar client:
 
 `npx prisma migrate dev`
+
+Em produção, use:
+
+`npm run migrate`
 
 4) Subir a API:
 
@@ -69,6 +74,8 @@ Run:
 - Configure as variáveis do `.env.example` na plataforma.
 - Rode migrations no ambiente de produção (ex: `npx prisma migrate deploy`).
 - Garanta `CORS_ORIGIN` sem `*` em produção.
+- CORS: prefira `CORS_ORIGINS` (lista separada por vírgulas). `CORS_ORIGIN` também funciona por compatibilidade.
+- Porta: plataformas costumam fornecer `PORT`; localmente use `PORTA`.
 
 ## 📁 Estrutura
 

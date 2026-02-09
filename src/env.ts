@@ -13,10 +13,12 @@ const EnvSchema = z
     NODE_ENV: NodeEnvSchema.default('development'),
 
     // CORS
-    // Pode ser um domínio/URL (ex: https://app.com) OU "*".
+    // Pode ser uma lista separada por vírgulas (ex: "https://app.com,capacitor://localhost") OU "*".
+    // Compat: aceita tanto CORS_ORIGINS quanto CORS_ORIGIN.
     CORS_ORIGIN: z.string().trim().min(1).default('*'),
 
     // JWT
+    // Compat: aceita JWT_SEGREDO ou JWT_SECRET.
     JWT_SEGREDO: z.string().trim().min(1),
     JWT_ACCESS_TOKEN_MINUTOS: z.coerce.number().int().positive().default(15),
     JWT_REFRESH_TOKEN_DIAS: z.coerce.number().int().positive().default(30),
@@ -52,6 +54,7 @@ const EnvSchema = z
     SMTP_PASS: z.string().default(''),
 
     // Frontend/Backend (links em emails)
+    // Compat: aceita FRONTEND_URL ou FRONTEND_ORIGIN.
     FRONTEND_URL: z.string().default('http://localhost:3000'),
     BACKEND_URL: z.string().default('http://localhost:3001'),
 
@@ -78,8 +81,8 @@ export const ENV = (() => {
   const parsed = EnvSchema.safeParse({
     PORTA: process.env.PORTA ?? process.env.PORT,
     NODE_ENV: process.env.NODE_ENV,
-    CORS_ORIGIN: process.env.CORS_ORIGIN,
-    JWT_SEGREDO: process.env.JWT_SEGREDO,
+    CORS_ORIGIN: process.env.CORS_ORIGINS ?? process.env.CORS_ORIGIN,
+    JWT_SEGREDO: process.env.JWT_SEGREDO ?? process.env.JWT_SECRET,
     JWT_ACCESS_TOKEN_MINUTOS: process.env.JWT_ACCESS_TOKEN_MINUTOS,
     JWT_REFRESH_TOKEN_DIAS: process.env.JWT_REFRESH_TOKEN_DIAS,
     PASSWORD_RESET_TTL_HORAS: process.env.PASSWORD_RESET_TTL_HORAS,
@@ -96,7 +99,7 @@ export const ENV = (() => {
     SMTP_PORT: process.env.SMTP_PORT,
     SMTP_USER: process.env.SMTP_USER,
     SMTP_PASS: process.env.SMTP_PASS,
-    FRONTEND_URL: process.env.FRONTEND_URL,
+    FRONTEND_URL: process.env.FRONTEND_URL ?? (process.env as any).FRONTEND_ORIGIN,
     BACKEND_URL: process.env.BACKEND_URL,
     ENABLE_EMAIL_JOBS: process.env.ENABLE_EMAIL_JOBS,
     CONSULTA_DURACAO_MINUTOS: process.env.CONSULTA_DURACAO_MINUTOS,

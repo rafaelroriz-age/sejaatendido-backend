@@ -19,6 +19,7 @@ import { connectMongoDB } from './utils/mongodb.js';
 import { logger, requestLogger } from './logger/winston.js';
 import swaggerUi from 'swagger-ui-express';
 import { openapi } from './openapi.js';
+import systemRoutes from './routes/system.js';
 
 const app = express();
 
@@ -31,14 +32,25 @@ app.set('trust proxy', 1);
 // Middlewares globais
 const allowAllOrigins = ENV.CORS_ORIGIN === '*';
 const allowedOrigins = allowAllOrigins
-  ? undefined
-  : ENV.CORS_ORIGIN.split(',').map((o) => o.trim()).filter(Boolean);
+  ? []
+  : ENV.CORS_ORIGIN.split(',')
+      .map((o) => o.trim())
+      .filter(Boolean);
 
 app.use(
   cors({
-    origin: allowAllOrigins ? true : allowedOrigins,
+    origin: (origin, callback) => {
+      // Permite requisições sem origin (Postman, apps mobile)
+      if (!origin) return callback(null, true);
+      if (allowAllOrigins) return callback(null, true);
+
+      const ok = allowedOrigins.some((allowed) => origin === allowed || origin.includes(allowed));
+      return ok ? callback(null, true) : callback(new Error(`Origin ${origin} not allowed by CORS`));
+    },
     // Se aceitar qualquer origin, NÃO use cookies/credenciais
-    credentials: allowAllOrigins ? false : true,
+    credentials: !allowAllOrigins,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   })
 );
 
@@ -52,23 +64,23 @@ app.use(requestLogger());
 
 app.use(
   rateLimit({
-    windowMs: 60_000,
-    limit: 300,
+    windowMs: 15 * 60_000,
+    limit: 200,
+    message: 'Muitas requisições, tente novamente em 15 minutos',
     standardHeaders: true,
     legacyHeaders: false,
   })
 );
 
-// Rate limit mais forte para auth
-app.use(
-  '/auth',
-  rateLimit({
-    windowMs: 60_000,
-    limit: 20,
-    standardHeaders: true,
-    legacyHeaders: false,
-  })
-);
+// Rate limit mais forte para autenticação
+const authLimiter = rateLimit({
+  windowMs: 15 * 60_000,
+  limit: 10,
+  message: 'Muitas tentativas de login/registro, aguarde 15 minutos',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use(['/auth/login', '/auth/register', '/api/auth/login', '/api/auth/register'], authLimiter);
 
 // Stripe webhook precisa do corpo RAW (antes do json parser)
 app.use('/pagamentos/webhook/stripe', express.raw({ type: 'application/json' }));
@@ -86,7 +98,7 @@ app.get('/', (req, res) => {
 });
 
 app.get('/health', (req, res) => {
-  res.json({ status: 'healthy' });
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 app.get('/openapi.json', (req, res) => {
@@ -108,6 +120,9 @@ app.use('/notificacoes', notificacoesRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api', apiRoutes);
 
+// Sistema
+app.use('/system', systemRoutes);
+
 // Error handler (deve ser o último middleware)
 app.use(errorHandler);
 
@@ -120,7 +135,7 @@ connectMongoDB({ exitOnFail: ENV.NODE_ENV === 'production' && !!ENV.MONGODB_URI 
 // Render (e outras plataformas) expõem a porta via env PORT
 const portFromPlatform = process.env.PORT ? Number(process.env.PORT) : undefined;
 const PORT = (Number.isFinite(portFromPlatform) && portFromPlatform! > 0 ? portFromPlatform : undefined) ?? ENV.PORTA ?? 3001;
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   const baseUrl = ENV.BACKEND_URL || `http://0.0.0.0:${PORT}`;
   logger.info('api_started', { baseUrl, health: `${baseUrl.replace(/\/$/, '')}/health` });
 });

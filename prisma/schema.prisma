@@ -70,6 +70,10 @@ model Consulta {
   avaliacao Avaliacao?
   medico     Medico   @relation(fields:[medicoId], references:[id])
   paciente   Paciente @relation(fields:[pacienteId], references:[id])
+
+  @@index([pacienteId])
+  @@index([medicoId])
+  @@index([data])
 }
 
 model Avaliacao {
@@ -97,6 +101,20 @@ model Pagamento {
   status        StatusPagamento @default(AGUARDANDO)
   transacaoId   String? @unique
   consulta      Consulta @relation(fields:[consultaId], references:[id])
+}
+
+model MercadoPagoWebhookEvent {
+  id           String   @id @default(uuid())
+  eventId      String   @unique
+  paymentId    String
+  type         String?
+  action       String?
+  processado   Boolean  @default(false)
+  processadoEm DateTime?
+  recebidoEm   DateTime @default(now())
+
+  @@index([paymentId])
+  @@index([recebidoEm])
 }
 
 model Documento {

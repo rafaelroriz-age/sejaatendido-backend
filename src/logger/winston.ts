@@ -39,6 +39,9 @@ export function requestLogger() {
         status,
         durationMs: ms,
         ip: req.ip,
+        origin: typeof req.get?.('origin') === 'string' ? req.get('origin') : undefined,
+        userAgent:
+          typeof req.get?.('user-agent') === 'string' ? String(req.get('user-agent')).slice(0, 120) : undefined,
       });
     });
     next();
