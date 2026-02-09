@@ -32,8 +32,6 @@ RUN npm run build
 FROM node:20-slim AS runner
 WORKDIR /usr/src/app
 ENV NODE_ENV=production
-ENV PORT=3001
-ENV PORTA=3001
 
 # Runtime deps (Prisma precisa de OpenSSL no container)
 RUN apt-get update \
@@ -46,6 +44,7 @@ RUN apt-get update \
 COPY --from=builder --chown=node:node /usr/src/app/package*.json ./
 COPY --from=builder --chown=node:node /usr/src/app/node_modules ./node_modules
 COPY --from=builder --chown=node:node /usr/src/app/dist ./dist
+COPY --from=builder --chown=node:node /usr/src/app/prisma ./prisma
 
 USER node
 EXPOSE 3001

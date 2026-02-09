@@ -172,6 +172,15 @@ export const criarPagamentoCartaoSchema = z.object({
   valorCentavos: z.number().int().positive('Valor deve ser positivo').optional(),
 });
 
+export const criarPagamentoMercadoPagoCheckoutSchema = z.object({
+  consultaId: z.string().uuid('ID da consulta inválido'),
+  valorCentavos: z.number().int().positive('Valor deve ser positivo').optional(),
+  // URLs de retorno do Checkout Pro (podem ser deep links do Expo, ex: myapp://pagamento/sucesso)
+  backUrlSuccess: z.string().trim().min(1).max(2000).optional(),
+  backUrlPending: z.string().trim().min(1).max(2000).optional(),
+  backUrlFailure: z.string().trim().min(1).max(2000).optional(),
+});
+
 // =====================
 // EMAIL SCHEMAS
 // =====================

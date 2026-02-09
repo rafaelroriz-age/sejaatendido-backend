@@ -95,7 +95,7 @@ model Pagamento {
   metodo        MetodoPagamento
   valorCentavos Int
   status        StatusPagamento @default(AGUARDANDO)
-  transacaoId   String?
+  transacaoId   String? @unique
   consulta      Consulta @relation(fields:[consultaId], references:[id])
 }
 

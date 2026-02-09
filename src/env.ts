@@ -38,6 +38,10 @@ const EnvSchema = z
     STRIPE_SECRET_KEY: z.string().default(''),
     STRIPE_WEBHOOK_SECRET: z.string().default(''),
 
+    // Mercado Pago
+    MERCADOPAGO_ACCESS_TOKEN: z.string().default(''),
+    MERCADOPAGO_WEBHOOK_SECRET: z.string().default(''),
+
     // Firebase (FCM)
     FIREBASE_SERVICE_ACCOUNT_JSON: z.string().default(''),
 
@@ -85,6 +89,8 @@ export const ENV = (() => {
     GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
     STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
     STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
+    MERCADOPAGO_ACCESS_TOKEN: process.env.MERCADOPAGO_ACCESS_TOKEN,
+    MERCADOPAGO_WEBHOOK_SECRET: process.env.MERCADOPAGO_WEBHOOK_SECRET,
     FIREBASE_SERVICE_ACCOUNT_JSON: process.env.FIREBASE_SERVICE_ACCOUNT_JSON,
     SMTP_HOST: process.env.SMTP_HOST,
     SMTP_PORT: process.env.SMTP_PORT,

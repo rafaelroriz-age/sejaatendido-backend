@@ -642,5 +642,57 @@ export const openapi = {
         },
       },
     },
+
+    '/pagamentos/mercadopago/checkout': {
+      post: {
+        tags: ['Pagamentos'],
+        summary: 'Criar checkout Mercado Pago (PIX + cartão)',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  consultaId: { type: 'string', format: 'uuid' },
+                  valorCentavos: { type: 'integer', minimum: 1 },
+                },
+                required: ['consultaId'],
+              },
+            },
+          },
+        },
+        responses: {
+          '201': { description: 'Checkout criado' },
+          '401': { $ref: '#/components/responses/Unauthorized' },
+          '403': { $ref: '#/components/responses/Forbidden' },
+          '400': { $ref: '#/components/responses/BadRequest' },
+        },
+      },
+    },
+
+    '/pagamentos/webhook/mercadopago': {
+      post: {
+        tags: ['Pagamentos'],
+        summary: 'Webhook Mercado Pago',
+        security: [],
+        responses: {
+          '200': { description: 'OK' },
+          '201': { description: 'OK' },
+        },
+      },
+    },
+
+    '/pagamentos/mercadopago/retorno': {
+      get: {
+        tags: ['Pagamentos'],
+        summary: 'Retorno Checkout Pro',
+        security: [],
+        responses: {
+          '200': { description: 'HTML de retorno' },
+        },
+      },
+    },
   },
 } as const;

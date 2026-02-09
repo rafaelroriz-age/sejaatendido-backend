@@ -117,7 +117,9 @@ startEmailJobs();
 // MongoDB (chat) - conecta se configurado
 connectMongoDB({ exitOnFail: ENV.NODE_ENV === 'production' && !!ENV.MONGODB_URI });
 
-const PORT = ENV.PORTA || 3001;
+// Render (e outras plataformas) expõem a porta via env PORT
+const portFromPlatform = process.env.PORT ? Number(process.env.PORT) : undefined;
+const PORT = (Number.isFinite(portFromPlatform) && portFromPlatform! > 0 ? portFromPlatform : undefined) ?? ENV.PORTA ?? 3001;
 app.listen(PORT, () => {
   const baseUrl = ENV.BACKEND_URL || `http://0.0.0.0:${PORT}`;
   logger.info('api_started', { baseUrl, health: `${baseUrl.replace(/\/$/, '')}/health` });
