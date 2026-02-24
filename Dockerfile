@@ -1,5 +1,5 @@
 # Stage 1: build
-FROM node:20-slim AS builder
+FROM node:20-bookworm-slim AS builder
 LABEL maintainer="GitHub Copilot"
 WORKDIR /usr/src/app
 ENV NODE_ENV=development
@@ -28,8 +28,19 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
+# Stage 1.5: production dependencies only (avoid copying devDependencies into runtime)
+FROM node:20-bookworm-slim AS prod-deps
+WORKDIR /usr/src/app
+
+# node:20-slim vem com npm v10; este repo usa lockfile gerado com npm v11
+RUN npm install -g npm@11.7.0
+
+COPY package*.json ./
+COPY prisma ./prisma
+RUN npm ci --omit=dev
+
 # Stage 2: runtime
-FROM node:20-slim AS runner
+FROM node:20-bookworm-slim AS runner
 WORKDIR /usr/src/app
 ENV NODE_ENV=production
 
@@ -42,7 +53,7 @@ RUN apt-get update \
 
 # Copia artefatos do build
 COPY --from=builder --chown=node:node /usr/src/app/package*.json ./
-COPY --from=builder --chown=node:node /usr/src/app/node_modules ./node_modules
+COPY --from=prod-deps --chown=node:node /usr/src/app/node_modules ./node_modules
 COPY --from=builder --chown=node:node /usr/src/app/dist ./dist
 COPY --from=builder --chown=node:node /usr/src/app/prisma ./prisma
 
