@@ -130,7 +130,7 @@ app.use(errorHandler);
 startEmailJobs();
 
 // MongoDB (chat) - conecta se configurado
-connectMongoDB({ exitOnFail: ENV.NODE_ENV === 'production' && !!ENV.MONGODB_URI });
+connectMongoDB({ exitOnFail: ENV.MONGODB_REQUIRED });
 
 // Render (e outras plataformas) expõem a porta via env PORT
 const portFromPlatform = process.env.PORT ? Number(process.env.PORT) : undefined;

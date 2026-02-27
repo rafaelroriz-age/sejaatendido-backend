@@ -76,6 +76,8 @@ Run:
 - Garanta `CORS_ORIGIN` sem `*` em produção.
 - CORS: prefira `CORS_ORIGINS` (lista separada por vírgulas). `CORS_ORIGIN` também funciona por compatibilidade.
 - Porta: plataformas costumam fornecer `PORT`; localmente use `PORTA`.
+- Banco: `DIRECT_URL` agora é opcional (o backend usa apenas `DATABASE_URL`).
+- Chat (Mongo): se `MONGODB_URI` estiver definido e falhar a conexão, o backend não cai mais por padrão. Para tornar obrigatório, use `MONGODB_REQUIRED=true`.
 
 ## 📁 Estrutura
 

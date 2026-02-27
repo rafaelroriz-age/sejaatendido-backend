@@ -10,6 +10,8 @@ Integration instructions:
 - `npx prisma migrate dev` (local)
 - `npx prisma migrate deploy` (production)
 
+Note: `DIRECT_URL` is optional now; production deploys only require `DATABASE_URL`.
+
 3) Mercado Pago checkout inside the app (Expo):
 
 - Call `POST /pagamentos/mercadopago/checkout` (authenticated as PACIENTE) with `{ consultaId, valorCentavos? }`.
