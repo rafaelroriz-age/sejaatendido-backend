@@ -20,6 +20,23 @@ Opcionais:
 - Mercado Pago (`MERCADOPAGO_ACCESS_TOKEN`, `MERCADOPAGO_WEBHOOK_SECRET`)
 - Firebase (`FIREBASE_SERVICE_ACCOUNT_JSON`)
 
+### Push notifications (Firebase/FCM)
+
+- Backend já tem rotas em `/notificacoes` para registrar token e enviar push de teste.
+- Configure UMA das env vars:
+  - `FIREBASE_SERVICE_ACCOUNT_JSON` (JSON do service account)
+  - `FIREBASE_SERVICE_ACCOUNT_JSON_BASE64` (o mesmo JSON em base64; útil quando a plataforma não aceita JSON multi-linha)
+
+### Login Google
+
+- Backend já expõe `POST /auth/login-google`.
+- Configure `GOOGLE_CLIENT_ID` com o Client ID do seu app no Google Cloud Console.
+
+### Envio de emails (SMTP)
+
+- Configure `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`.
+- Em produção, ao habilitar envio automático (`ENABLE_EMAIL_JOBS=true`) você também precisa de `CRON_SECRET`.
+
 ## 2. Docker
 
 - Build: `docker build -t sejaatendido-backend .`

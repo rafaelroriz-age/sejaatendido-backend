@@ -1,16 +1,23 @@
 import nodemailer from 'nodemailer';
 import { ENV } from '../env.js';
 
-// Configuração do transporter
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.gmail.com',
-  port: Number(process.env.SMTP_PORT) || 587,
-  secure: false, // true para 465, false para outras portas
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
+let transporter: nodemailer.Transporter | null = null;
+
+function getTransporter() {
+  if (transporter) return transporter;
+
+  const secure = ENV.SMTP_PORT === 465;
+  const auth = ENV.SMTP_USER && ENV.SMTP_PASS ? { user: ENV.SMTP_USER, pass: ENV.SMTP_PASS } : undefined;
+
+  transporter = nodemailer.createTransport({
+    host: ENV.SMTP_HOST,
+    port: ENV.SMTP_PORT,
+    secure,
+    auth,
+  });
+
+  return transporter;
+}
 
 // Templates de email
 const templates = {
@@ -37,7 +44,7 @@ const templates = {
           <h2>Olá, ${nome}!</h2>
           <p>Obrigado por se cadastrar na plataforma SejaAtendido. Para confirmar seu email e ativar sua conta, clique no botão abaixo:</p>
           <center>
-            <a href="${process.env.BACKEND_URL || ENV.BACKEND_URL}/emails/confirmar-email?token=${token}" class="button">
+            <a href="${ENV.BACKEND_URL}/emails/confirmar-email?token=${token}" class="button">
               Confirmar Email
             </a>
           </center>
@@ -568,13 +575,13 @@ export interface EmailOptions {
 export async function enviarEmail(options: EmailOptions): Promise<boolean> {
   try {
     // Verificar se SMTP está configurado
-    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+    if (!ENV.SMTP_USER || !ENV.SMTP_PASS) {
       console.warn('⚠️ SMTP não configurado. Email não enviado:', options.subject);
       return false;
     }
 
-    await transporter.sendMail({
-      from: `"SejaAtendido" <${process.env.SMTP_USER}>`,
+    await getTransporter().sendMail({
+      from: `"SejaAtendido" <${ENV.SMTP_USER}>`,
       to: options.to,
       subject: options.subject,
       html: options.html,

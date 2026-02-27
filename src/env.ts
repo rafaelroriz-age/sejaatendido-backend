@@ -78,6 +78,14 @@ const EnvSchema = z
   .strict();
 
 export const ENV = (() => {
+  // Facilita setup em plataformas que não lidam bem com JSON multi-linha em env vars.
+  // Se FIREBASE_SERVICE_ACCOUNT_JSON não estiver definido, aceitamos o JSON em base64.
+  const firebaseServiceAccountJson =
+    process.env.FIREBASE_SERVICE_ACCOUNT_JSON ||
+    (process.env.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64
+      ? Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64, 'base64').toString('utf8')
+      : undefined);
+
   const parsed = EnvSchema.safeParse({
     PORTA: process.env.PORTA ?? process.env.PORT,
     NODE_ENV: process.env.NODE_ENV,
@@ -94,7 +102,7 @@ export const ENV = (() => {
     STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
     MERCADOPAGO_ACCESS_TOKEN: process.env.MERCADOPAGO_ACCESS_TOKEN,
     MERCADOPAGO_WEBHOOK_SECRET: process.env.MERCADOPAGO_WEBHOOK_SECRET,
-    FIREBASE_SERVICE_ACCOUNT_JSON: process.env.FIREBASE_SERVICE_ACCOUNT_JSON,
+    FIREBASE_SERVICE_ACCOUNT_JSON: firebaseServiceAccountJson,
     SMTP_HOST: process.env.SMTP_HOST,
     SMTP_PORT: process.env.SMTP_PORT,
     SMTP_USER: process.env.SMTP_USER,
