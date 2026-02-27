@@ -18,13 +18,39 @@ const googleClient = ENV.GOOGLE_CLIENT_ID ? new OAuth2Client(ENV.GOOGLE_CLIENT_I
 
 export async function registro(req:Request, res:Response){
   try{
-    const { nome, email, senha, tipo } = req.body;
+    const { nome, email, senha, tipo, crm } = req.body as {
+      nome: string;
+      email: string;
+      senha: string;
+      tipo: 'PACIENTE' | 'MEDICO';
+      crm?: string;
+    };
     const existe = await prisma.usuario.findUnique({ where:{ email } });
     if(existe) return res.status(400).json({ erro:'Email já cadastrado' });
+
+    if (tipo === 'MEDICO') {
+      const crmFinal = String(crm ?? '').trim().toUpperCase();
+      if (!crmFinal) return res.status(400).json({ erro: 'CRM é obrigatório para médicos' });
+
+      const crmEmUso = await prisma.medico.findUnique({ where: { crm: crmFinal } });
+      if (crmEmUso) return res.status(400).json({ erro: 'CRM já cadastrado' });
+    }
+
     const senhaHash = await bcrypt.hash(senha, 10);
     const user = await prisma.usuario.create({ data:{ nome, email, senhaHash, tipo } });
     if(tipo === 'MEDICO') {
-      await prisma.medico.create({ data:{ usuarioId: user.id, crm:'', especialidades:[] }});
+      const crmFinal = String(crm ?? '').trim().toUpperCase();
+      await prisma.medico.create({
+        data:{
+          usuarioId: user.id,
+          crm: crmFinal,
+          especialidades:[],
+          status: 'PENDENTE',
+          aprovado: false,
+          diplomaUrl: null,
+          motivoRejeicao: null,
+        }
+      });
     }
     if(tipo === 'PACIENTE') {
       await prisma.paciente.create({ data:{ usuarioId: user.id }});
@@ -58,6 +84,9 @@ export async function registro(req:Request, res:Response){
       accessToken: access.token,
       refreshToken: refresh.refreshToken,
       usuario: { id: user.id, nome: user.nome, email: user.email, tipo: user.tipo },
+      ...(tipo === 'MEDICO'
+        ? { mensagem: 'Cadastro realizado. Seu perfil será analisado por um administrador antes de liberar o acesso.' }
+        : {}),
     });
   }catch(e){ console.error(e); res.status(500).json({ erro:'registro falhou' }); }
 }
@@ -75,6 +104,30 @@ export async function login(req:Request, res:Response){
 
     const ok = await bcrypt.compare(senha, user.senhaHash);
     if(!ok) return res.status(401).json({ erro:'Credenciais invalidas' });
+
+    if (user.tipo === 'MEDICO') {
+      const medico = await prisma.medico.findUnique({
+        where: { usuarioId: user.id },
+        select: { status: true, motivoRejeicao: true },
+      });
+
+      if (!medico) {
+        return res.status(403).json({ erro: 'Perfil de médico não encontrado' });
+      }
+
+      if (medico.status !== 'APROVADO') {
+        if (medico.status === 'REJEITADO') {
+          return res.status(403).json({
+            erro: 'Cadastro de médico rejeitado',
+            motivo: medico.motivoRejeicao || undefined,
+          });
+        }
+
+        return res.status(403).json({
+          erro: 'Cadastro de médico pendente de aprovação',
+        });
+      }
+    }
 
     const access = signAccessToken({ userId: user.id, tipo: user.tipo });
     const refresh = await issueRefreshToken(user.id);

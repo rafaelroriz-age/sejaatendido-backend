@@ -21,7 +21,7 @@ r.get('/', async (req: Request, res: Response) => {
 
     const medicos = await prisma.medico.findMany({
       where: {
-        aprovado: true,
+        status: 'APROVADO',
         ...(especialidade && {
           especialidades: { has: especialidade as string },
         }),
@@ -39,31 +39,6 @@ r.get('/', async (req: Request, res: Response) => {
   } catch (e) {
     console.error(e);
     res.status(500).json({ erro: 'Erro ao listar médicos' });
-  }
-});
-
-// Buscar médico específico por ID
-r.get('/:id', async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const medico = await prisma.medico.findUnique({
-      where: { id },
-      include: {
-        usuario: {
-          // Evita expor email em rota pública
-          select: { id: true, nome: true },
-        },
-      },
-    });
-
-    if (!medico) {
-      return res.status(404).json({ erro: 'Médico não encontrado' });
-    }
-
-    res.json(medico);
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ erro: 'Erro ao buscar médico' });
   }
 });
 
@@ -116,6 +91,13 @@ r.put(
         return res.status(404).json({ erro: 'Médico não encontrado' });
       }
 
+      if (crm && crm !== medico.crm) {
+        const crmEmUso = await prisma.medico.findUnique({ where: { crm } });
+        if (crmEmUso) {
+          return res.status(400).json({ erro: 'CRM já está em uso' });
+        }
+      }
+
       const atualizado = await prisma.medico.update({
         where: { id: medico.id },
         data: {
@@ -136,6 +118,23 @@ r.put(
     }
   }
 );
+
+// Placeholder: upload de diploma (não armazena arquivo)
+r.post('/:id/diploma', authMiddleware, requireRole('MEDICO'), async (req: Request, res: Response) => {
+  try {
+    const userId = req.userId!;
+    const { id } = req.params;
+
+    const medico = await prisma.medico.findUnique({ where: { usuarioId: userId } });
+    if (!medico) return res.status(404).json({ erro: 'Médico não encontrado' });
+    if (medico.id !== id) return res.status(403).json({ erro: 'Sem permissão' });
+
+    return res.status(200).json({ message: 'Upload de diploma ainda não implementado', url: null });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ erro: 'Erro ao processar upload de diploma' });
+  }
+});
 
 // Listar consultas do médico logado
 r.get('/me/consultas', authMiddleware, requireRole('MEDICO'), async (req: Request, res: Response) => {
@@ -320,6 +319,39 @@ r.post('/me/documentos', authMiddleware, requireRole('MEDICO'), async (req: Requ
   } catch (e) {
     console.error(e);
     res.status(500).json({ erro: 'Erro ao salvar documento' });
+  }
+});
+
+// =====================
+// ROTAS PÚBLICAS (DETALHE)
+// =====================
+
+// Buscar médico específico por ID
+r.get('/:id', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const medico = await prisma.medico.findUnique({
+      where: { id },
+      include: {
+        usuario: {
+          // Evita expor email em rota pública
+          select: { id: true, nome: true },
+        },
+      },
+    });
+
+    if (!medico) {
+      return res.status(404).json({ erro: 'Médico não encontrado' });
+    }
+
+    if (medico.status !== 'APROVADO') {
+      return res.status(404).json({ erro: 'Médico não encontrado' });
+    }
+
+    res.json(medico);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ erro: 'Erro ao buscar médico' });
   }
 });
 

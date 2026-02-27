@@ -44,7 +44,7 @@ api.get('/usuarios/search', authMiddleware, async (req, res) => {
 
   const medicos = await prisma.medico.findMany({
     where: {
-      aprovado: true,
+      status: 'APROVADO',
       ...(especialidade ? { especialidades: { has: especialidade } } : {}),
       usuario: { nome: { contains: q, mode: 'insensitive' } },
     },
@@ -68,7 +68,7 @@ api.get('/usuarios/profissionais', async (req, res) => {
   const { especialidade, nome } = parsed.data;
   const medicos = await prisma.medico.findMany({
     where: {
-      aprovado: true,
+      status: 'APROVADO',
       ...(especialidade ? { especialidades: { has: especialidade } } : {}),
       ...(nome ? { usuario: { nome: { contains: nome, mode: 'insensitive' } } } : {}),
     },
@@ -95,7 +95,7 @@ api.get('/usuarios/:id', authMiddleware, validateRequest({ params: idParamSchema
       tipo: true,
       criadoEm: true,
       emailConfirmado: true,
-      medico: { select: { id: true, crm: true, especialidades: true, aprovado: true } },
+      medico: { select: { id: true, crm: true, especialidades: true, aprovado: true, status: true, motivoRejeicao: true } },
       paciente: { select: { id: true } },
     },
   });
@@ -196,7 +196,7 @@ api.post('/consultas/agendar', authMiddleware, requireRole('PACIENTE'), validate
   if (!paciente) return res.status(404).json({ erro: 'Paciente não encontrado' });
 
   const medico = await prisma.medico.findUnique({ where: { id: medicoId } });
-  if (!medico || !medico.aprovado) return res.status(400).json({ erro: 'Médico não disponível' });
+  if (!medico || medico.status !== 'APROVADO') return res.status(400).json({ erro: 'Médico não disponível' });
 
   const dataConsulta = new Date(data);
   const conflito = await prisma.consulta.findFirst({

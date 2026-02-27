@@ -1,5 +1,12 @@
 import { z } from 'zod';
 
+const crmSchema = z
+  .string()
+  .trim()
+  .toUpperCase()
+  // Mantém propositalmente simples: ex "CRM/SP 12345" ou "CRM-SP 12345".
+  .refine((v) => /^CRM\s*[-/]?\s*[A-Z]{2}\s*\d{3,10}$/.test(v), 'CRM inválido');
+
 const senhaForteSchema = z
   .string()
   .min(8, 'Senha deve ter no mínimo 8 caracteres')
@@ -16,8 +23,30 @@ export const registroSchema = z.object({
   nome: z.string().trim().min(3, 'Nome deve ter no mínimo 3 caracteres'),
   email: z.string().trim().email('Email inválido'),
   senha: senhaForteSchema,
-  tipo: z.enum(['PACIENTE', 'MEDICO']),
-});
+  tipo: z.enum(['PACIENTE', 'MEDICO']).optional(),
+  role: z.enum(['PACIENTE', 'MEDICO']).optional(),
+  crm: crmSchema.optional(),
+  diplomaAnexado: z.boolean().optional(),
+})
+  .superRefine((data, ctx) => {
+    const resolvedTipo = data.tipo ?? data.role;
+    if (!resolvedTipo) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['tipo'], message: 'tipo é obrigatório' });
+      return;
+    }
+
+    if (resolvedTipo === 'MEDICO' && !data.crm) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['crm'], message: 'CRM é obrigatório para médicos' });
+    }
+  })
+  .transform((data) => ({
+    nome: data.nome,
+    email: data.email,
+    senha: data.senha,
+    tipo: (data.tipo ?? data.role) as 'PACIENTE' | 'MEDICO',
+    crm: data.crm,
+    diplomaAnexado: data.diplomaAnexado,
+  }));
 
 export const loginSchema = z.object({
   email: z.string().trim().email('Email inválido'),
@@ -93,7 +122,7 @@ export const atualizarConsultaSchema = z.object({
 // MÉDICO SCHEMAS
 // =====================
 export const atualizarMedicoSchema = z.object({
-  crm: z.string().min(4, 'CRM inválido').optional(),
+  crm: crmSchema.optional(),
   especialidades: z.array(z.string()).optional(),
 });
 
@@ -144,8 +173,17 @@ export const adminCriarUsuarioSchema = z.object({
   email: z.string().email('Email inválido'),
   senha: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
   tipo: z.enum(['PACIENTE', 'MEDICO', 'ADMIN']),
-  crm: z.string().min(4, 'CRM inválido').optional(),
+  crm: crmSchema.optional(),
   especialidades: z.array(z.string()).optional(),
+})
+  .superRefine((data, ctx) => {
+    if (data.tipo === 'MEDICO' && !data.crm) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['crm'], message: 'CRM é obrigatório para médicos' });
+    }
+  });
+
+export const adminMedicoRejeitarSchema = z.object({
+  motivo: z.string().trim().min(3, 'Motivo deve ter no mínimo 3 caracteres').max(500, 'Motivo muito longo'),
 });
 
 export const adminAtualizarUsuarioSchema = z.object({

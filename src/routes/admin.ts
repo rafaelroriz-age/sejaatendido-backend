@@ -3,7 +3,7 @@ import { prisma } from '../utils/prisma.js';
 import { authMiddleware, requireRole } from '../middlewares/auth.middleware.js';
 import emailService from '../services/email.service.js';
 import { validate } from '../middlewares/validate.middleware.js';
-import { adminAtualizarUsuarioSchema, adminCriarUsuarioSchema } from '../validators/schemas.js';
+import { adminAtualizarUsuarioSchema, adminCriarUsuarioSchema, adminMedicoRejeitarSchema } from '../validators/schemas.js';
 import bcrypt from 'bcryptjs';
 
 const r = Router();
@@ -19,15 +19,27 @@ r.use(authMiddleware, requireRole('ADMIN'));
 r.get('/medicos/pendentes', async (req: Request, res: Response) => {
   try {
     const pendentes = await prisma.medico.findMany({
-      where: { aprovado: false },
-      include: {
-        usuario: {
-          select: { id: true, nome: true, email: true },
-        },
-        documentos: true,
+      where: { status: 'PENDENTE' },
+      select: {
+        id: true,
+        crm: true,
+        diplomaUrl: true,
+        createdAt: true,
+        usuario: { select: { nome: true, email: true } },
       },
+      orderBy: { createdAt: 'asc' },
     });
-    res.json(pendentes);
+
+    res.json(
+      pendentes.map((m) => ({
+        id: m.id,
+        nome: m.usuario.nome,
+        email: m.usuario.email,
+        crm: m.crm,
+        diplomaUrl: m.diplomaUrl,
+        createdAt: m.createdAt,
+      }))
+    );
   } catch (e) {
     console.error(e);
     res.status(500).json({ erro: 'Erro ao listar médicos pendentes' });
@@ -53,13 +65,13 @@ r.get('/medicos', async (req: Request, res: Response) => {
 });
 
 // Aprovar médico
-r.post('/medicos/:id/aprovar', async (req: Request, res: Response) => {
+async function aprovarMedicoHandler(req: Request, res: Response) {
   try {
     const { id } = req.params;
 
     const medico = await prisma.medico.update({
       where: { id },
-      data: { aprovado: true },
+      data: { status: 'APROVADO', aprovado: true, motivoRejeicao: null },
       include: {
         usuario: {
           select: { id: true, nome: true, email: true },
@@ -79,12 +91,23 @@ r.post('/medicos/:id/aprovar', async (req: Request, res: Response) => {
     console.error(e);
     res.status(500).json({ erro: 'Erro ao aprovar médico' });
   }
-});
+}
+
+// Novo (spec): PATCH /admin/medicos/:id/aprovar
+r.patch('/medicos/:id/aprovar', aprovarMedicoHandler);
+// Legado: POST /admin/medicos/:id/aprovar
+r.post('/medicos/:id/aprovar', aprovarMedicoHandler);
 
 // Recusar médico
-r.post('/medicos/:id/recusar', async (req: Request, res: Response) => {
+async function rejeitarMedicoHandler(req: Request, res: Response) {
   try {
     const { id } = req.params;
+
+    const { motivo } = req.body as { motivo?: string };
+    const motivoFinal = String(motivo ?? '').trim();
+    if (!motivoFinal) {
+      return res.status(400).json({ erro: 'Motivo é obrigatório' });
+    }
 
     // Buscar médico e usuário relacionado
     const medico = await prisma.medico.findUnique({
@@ -96,19 +119,23 @@ r.post('/medicos/:id/recusar', async (req: Request, res: Response) => {
       return res.status(404).json({ erro: 'Médico não encontrado' });
     }
 
-    // Deletar documentos, médico e usuário
-    await prisma.$transaction([
-      prisma.documento.deleteMany({ where: { medicoId: id } }),
-      prisma.medico.delete({ where: { id } }),
-      prisma.usuario.delete({ where: { id: medico.usuarioId } }),
-    ]);
+    const atualizado = await prisma.medico.update({
+      where: { id },
+      data: { status: 'REJEITADO', aprovado: false, motivoRejeicao: motivoFinal },
+      include: { usuario: { select: { id: true, nome: true, email: true } } },
+    });
 
-    res.json({ mensagem: 'Médico recusado e removido do sistema' });
+    res.json({ mensagem: 'Médico rejeitado com sucesso', medico: atualizado });
   } catch (e) {
     console.error(e);
     res.status(500).json({ erro: 'Erro ao recusar médico' });
   }
-});
+}
+
+// Novo (spec): PATCH /admin/medicos/:id/rejeitar { motivo }
+r.patch('/medicos/:id/rejeitar', validate(adminMedicoRejeitarSchema), rejeitarMedicoHandler);
+// Legado: POST /admin/medicos/:id/recusar (mantém compat)
+r.post('/medicos/:id/recusar', validate(adminMedicoRejeitarSchema), rejeitarMedicoHandler);
 
 // =====================
 // GESTÃO DE CONSULTAS
@@ -207,6 +234,8 @@ r.post('/usuarios', validate(adminCriarUsuarioSchema), async (req: Request, res:
           usuarioId: usuario.id,
           crm: crm || '',
           especialidades: especialidades || [],
+          status: 'APROVADO',
+          aprovado: true,
         },
       });
     }
@@ -358,7 +387,7 @@ r.get('/dashboard', async (req: Request, res: Response) => {
       await Promise.all([
         prisma.usuario.count(),
         prisma.medico.count(),
-        prisma.medico.count({ where: { aprovado: true } }),
+        prisma.medico.count({ where: { status: 'APROVADO' } }),
         prisma.paciente.count(),
         prisma.consulta.count(),
         prisma.consulta.count({ where: { status: 'PENDENTE' } }),

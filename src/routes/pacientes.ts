@@ -65,7 +65,7 @@ r.post(
         include: { usuario: { select: { id: true, nome: true, email: true } } },
       });
 
-      if (!medico || !medico.aprovado) {
+      if (!medico || medico.status !== 'APROVADO') {
         return res.status(400).json({ erro: 'Médico não disponível' });
       }
 

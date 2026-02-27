@@ -33,6 +33,8 @@ r.get('/me', async (req: Request, res: Response) => {
             crm: true,
             especialidades: true,
             aprovado: true,
+            status: true,
+            motivoRejeicao: true,
           },
         },
         paciente: {

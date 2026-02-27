@@ -33,12 +33,23 @@ enum TipoUsuario {
   ADMIN
 }
 
+enum StatusMedico {
+  PENDENTE
+  APROVADO
+  REJEITADO
+}
+
 model Medico {
   id             String   @id @default(uuid())
   usuarioId      String   @unique
-  crm            String
+  crm            String   @unique
   especialidades String[]
+  // Legado: mantido por compatibilidade (use `status` como fonte da verdade)
   aprovado       Boolean  @default(false)
+  status         StatusMedico @default(PENDENTE)
+  diplomaUrl     String?
+  motivoRejeicao String?
+  createdAt      DateTime @default(now())
   documentos     Documento[]
   consultas      Consulta[]
   avaliacoes     Avaliacao[]
