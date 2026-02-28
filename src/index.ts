@@ -10,14 +10,19 @@ import pagamentoRoutes from './routes/pagamentos.js';
 import usuarioRoutes from './routes/usuarios.js';
 import emailRoutes from './routes/emails.js';
 import notificacoesRoutes from './routes/notificacoes.js';
-import chatRoutes from './routes/chat.js';
+// Chat desabilitado (requer MongoDB)
+// import chatRoutes from './routes/chat.js';
 import apiRoutes from './routes/api.js';
 import { errorHandler } from './middlewares/error.middleware.js';
 import { ENV } from './env.js';
 import { startEmailJobs } from './jobs/email.jobs.js';
-import { connectMongoDB } from './utils/mongodb.js';
+// MongoDB/Chat desabilitado (não essencial, economiza ~7MB no npm ci)
+// Para reabilitar: npm i mongoose mongodb, descomentar import abaixo
+// import { connectMongoDB } from './utils/mongodb.js';
 import { logger, requestLogger } from './logger/winston.js';
-import swaggerUi from 'swagger-ui-express';
+// swagger-ui-express removido do bundle de produção (12MB+)
+// Para reabilitar: npm i swagger-ui-express && descomentar
+// import swaggerUi from 'swagger-ui-express';
 import { openapi } from './openapi.js';
 import systemRoutes from './routes/system.js';
 
@@ -93,8 +98,8 @@ const authLimiter = rateLimit({
 });
 app.use(['/auth/login', '/auth/register', '/api/auth/login', '/api/auth/register'], authLimiter);
 
-// Stripe webhook precisa do corpo RAW (antes do json parser)
-app.use('/pagamentos/webhook/stripe', express.raw({ type: 'application/json' }));
+// Stripe desabilitado — reabilitar quando necessário:
+// app.use('/pagamentos/webhook/stripe', express.raw({ type: 'application/json' }));
 
 app.use(express.json({ limit: '1mb' }));
 
@@ -116,13 +121,10 @@ app.get('/openapi.json', (req, res) => {
   res.json(openapi);
 });
 
-// Swagger UI — desabilitado em produção (pesado e não necessário em runtime)
-// Para reabilitar: remova a condição abaixo e ajuste a env var
-if (ENV.NODE_ENV !== 'production') {
-  app.use('/docs', swaggerUi.serve, swaggerUi.setup(openapi));
-} else {
-  app.get('/docs', (_req, res) => res.redirect('/openapi.json'));
-}
+// Swagger UI removido (dependência pesada de 12MB+)
+// Para reabilitar: npm i swagger-ui-express, descomentar import e descomentar as 2 linhas abaixo:
+// app.use('/docs', swaggerUi.serve, swaggerUi.setup(openapi));
+app.get('/docs', (_req, res) => res.redirect('/openapi.json'));
 
 // Rotas
 app.use('/auth', authRoutes);
@@ -134,7 +136,9 @@ app.use('/pagamentos', pagamentoRoutes);
 app.use('/usuarios', usuarioRoutes);
 app.use('/emails', emailRoutes);
 app.use('/notificacoes', notificacoesRoutes);
-app.use('/api/chat', chatRoutes);
+// Chat desabilitado (requer MongoDB)
+// app.use('/api/chat', chatRoutes);
+app.use('/api/chat', (_req, res) => res.status(503).json({ erro: 'Chat indisponível (MongoDB desabilitado)' }));
 app.use('/api', apiRoutes);
 
 // Sistema
@@ -150,10 +154,10 @@ try {
   console.error('Falha ao iniciar email jobs (não fatal):', e);
 }
 
-// MongoDB (chat) - conecta se configurado, nunca derruba a API por padrão
-connectMongoDB({ exitOnFail: ENV.MONGODB_REQUIRED }).catch((e) => {
-  console.error('MongoDB connection error (não fatal):', e);
-});
+// MongoDB desabilitado — reabilitar quando necessário:
+// connectMongoDB({ exitOnFail: ENV.MONGODB_REQUIRED }).catch((e) => {
+//   console.error('MongoDB connection error (não fatal):', e);
+// });
 
 // Render (e outras plataformas) expõem a porta via env PORT
 const portFromPlatform = process.env.PORT ? Number(process.env.PORT) : undefined;

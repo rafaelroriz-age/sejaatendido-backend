@@ -18,8 +18,12 @@ import {
   usuarioSearchSchema,
 } from '../validators/schemas.js';
 import { prisma } from '../utils/prisma.js';
-import { chatService } from '../services/chat.service.js';
-import { isMongoConnected } from '../utils/mongodb.js';
+// Chat/MongoDB desabilitado — stubs inline
+// Para reabilitar: npm i mongoose mongodb, descomentar imports abaixo
+// import { chatService } from '../services/chat.service.js';
+// import { isMongoConnected } from '../utils/mongodb.js';
+const isMongoConnected = () => false;
+const chatService: any = null;
 
 const api = Router();
 

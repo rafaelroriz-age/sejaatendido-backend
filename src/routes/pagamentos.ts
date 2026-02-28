@@ -7,7 +7,8 @@ import {
   criarPagamentoMercadoPagoCheckoutSchema,
   criarPagamentoPixSchema,
 } from '../validators/schemas.js';
-import Stripe from 'stripe';
+// Stripe desabilitado — reabilitar quando necessário:
+// import Stripe from 'stripe';
 import { ENV } from '../env.js';
 import emailService from '../services/email.service.js';
 import { enviarPushParaUsuario } from '../services/push.service.js';
@@ -23,8 +24,9 @@ import { logger } from '../logger/winston.js';
 
 const r = Router();
 
-// Inicializar Stripe (se configurado)
-const stripe = ENV.STRIPE_SECRET_KEY ? new Stripe(ENV.STRIPE_SECRET_KEY) : null;
+// Stripe desabilitado — pagamentos por cartão via MercadoPago Checkout Pro
+// Para reabilitar: npm i stripe, descomentar import e remover null forçado
+const stripe: any = null; // ENV.STRIPE_SECRET_KEY ? new Stripe(ENV.STRIPE_SECRET_KEY) : null;
 
 // =====================
 // MERCADO PAGO (Checkout Pro)
@@ -634,17 +636,17 @@ r.post('/webhook/stripe', async (req: Request, res: Response) => {
     const sig = req.headers['stripe-signature'] as string;
     const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
-    let event: Stripe.Event;
+    let event: any;
 
     if (endpointSecret) {
       event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
     } else {
-      event = req.body as Stripe.Event;
+      event = req.body;
     }
 
     switch (event.type) {
       case 'payment_intent.succeeded': {
-        const paymentIntent = event.data.object as Stripe.PaymentIntent;
+        const paymentIntent = event.data.object as any;
 
         // Idempotência real: só processa se ainda não estiver PAGO
         const processed = await prisma.$transaction(async (tx) => {
@@ -719,7 +721,7 @@ r.post('/webhook/stripe', async (req: Request, res: Response) => {
       }
 
       case 'payment_intent.payment_failed': {
-        const failedIntent = event.data.object as Stripe.PaymentIntent;
+        const failedIntent = event.data.object as any;
         // Não sobrescreve PAGO
         await prisma.pagamento.updateMany({
           where: { transacaoId: failedIntent.id, status: { not: 'PAGO' } },

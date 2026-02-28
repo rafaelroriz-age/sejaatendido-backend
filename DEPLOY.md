@@ -5,7 +5,7 @@
 | Campo             | Valor                                                              |
 |-------------------|--------------------------------------------------------------------|
 | **Runtime**       | Node                                                               |
-| **Build Command** | `npm ci && npm run build`                                          |
+| **Build Command** | `npm ci && npm run build && npm prune --omit=dev`                  |
 | **Start Command** | `npm start`                                                        |
 | **Node Version**  | 20                                                                 |
 | **Health Check**  | `/health`                                                          |
