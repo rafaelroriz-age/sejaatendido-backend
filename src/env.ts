@@ -168,11 +168,10 @@ export const ENV = (() => {
       }
     }
 
-    // SMTP/Emails: exige credenciais completas quando jobs estiverem ativos ou quando qualquer credencial for informada
+    // SMTP/Emails: exige credenciais completas quando jobs estiverem ativos ou quando SMTP_USER/PASS forem explicitamente definidos.
+    // Nota: SMTP_HOST/PORT têm defaults, por isso verificamos apenas USER/PASS para detectar intenção de uso.
     const smtpEnabled = env.ENABLE_EMAIL_JOBS || !!env.SMTP_USER || !!env.SMTP_PASS;
     if (smtpEnabled) {
-      if (!env.SMTP_HOST) throw new Error('SMTP_HOST ausente em produção (email parece habilitado).');
-      if (!env.SMTP_PORT) throw new Error('SMTP_PORT ausente em produção (email parece habilitado).');
       if (!env.SMTP_USER) throw new Error('SMTP_USER ausente em produção (email parece habilitado).');
       if (!env.SMTP_PASS) throw new Error('SMTP_PASS ausente em produção (email parece habilitado).');
     }

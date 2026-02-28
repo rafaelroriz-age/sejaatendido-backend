@@ -21,6 +21,17 @@ import swaggerUi from 'swagger-ui-express';
 import { openapi } from './openapi.js';
 import systemRoutes from './routes/system.js';
 
+// Garante que rejeições/exceções não tratadas não derrubem o processo silenciosamente
+process.on('unhandledRejection', (reason) => {
+  console.error('[unhandledRejection]', reason);
+  // Não encerra o processo — o erro já está logado
+});
+process.on('uncaughtException', (err) => {
+  console.error('[uncaughtException]', err);
+  // Encerra de forma limpa para o supervisor (Render) reiniciar
+  process.exit(1);
+});
+
 const app = express();
 
 // Remove header que revela tecnologia
