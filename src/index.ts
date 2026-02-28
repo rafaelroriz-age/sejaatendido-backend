@@ -21,15 +21,15 @@ import swaggerUi from 'swagger-ui-express';
 import { openapi } from './openapi.js';
 import systemRoutes from './routes/system.js';
 
-// Garante que rejeições/exceções não tratadas não derrubem o processo silenciosamente
+// Garante que rejeições/exceções não tratadas não derrubem o processo
 process.on('unhandledRejection', (reason) => {
   console.error('[unhandledRejection]', reason);
-  // Não encerra o processo — o erro já está logado
+  // Não encerra — apenas loga
 });
 process.on('uncaughtException', (err) => {
+  // Apenas loga — não encerra. Erros fatais reais (como falta de env) já
+  // são lançados antes do listen() e impedem o processo de subir.
   console.error('[uncaughtException]', err);
-  // Encerra de forma limpa para o supervisor (Render) reiniciar
-  process.exit(1);
 });
 
 const app = express();
@@ -116,7 +116,13 @@ app.get('/openapi.json', (req, res) => {
   res.json(openapi);
 });
 
-app.use('/docs', swaggerUi.serve, swaggerUi.setup(openapi));
+// Swagger UI — desabilitado em produção (pesado e não necessário em runtime)
+// Para reabilitar: remova a condição abaixo e ajuste a env var
+if (ENV.NODE_ENV !== 'production') {
+  app.use('/docs', swaggerUi.serve, swaggerUi.setup(openapi));
+} else {
+  app.get('/docs', (_req, res) => res.redirect('/openapi.json'));
+}
 
 // Rotas
 app.use('/auth', authRoutes);
@@ -137,11 +143,17 @@ app.use('/system', systemRoutes);
 // Error handler (deve ser o último middleware)
 app.use(errorHandler);
 
-// Jobs internos (node-cron)
-startEmailJobs();
+// Jobs internos (node-cron) — best-effort, não derruba a API
+try {
+  startEmailJobs();
+} catch (e) {
+  console.error('Falha ao iniciar email jobs (não fatal):', e);
+}
 
-// MongoDB (chat) - conecta se configurado
-connectMongoDB({ exitOnFail: ENV.MONGODB_REQUIRED });
+// MongoDB (chat) - conecta se configurado, nunca derruba a API por padrão
+connectMongoDB({ exitOnFail: ENV.MONGODB_REQUIRED }).catch((e) => {
+  console.error('MongoDB connection error (não fatal):', e);
+});
 
 // Render (e outras plataformas) expõem a porta via env PORT
 const portFromPlatform = process.env.PORT ? Number(process.env.PORT) : undefined;

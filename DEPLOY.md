@@ -5,12 +5,15 @@
 | Campo             | Valor                                                              |
 |-------------------|--------------------------------------------------------------------|
 | **Runtime**       | Node                                                               |
-| **Build Command** | `npm ci && npm run prisma:deploy && npm run build`                 |
+| **Build Command** | `npm ci && npm run build`                                          |
 | **Start Command** | `npm start`                                                        |
 | **Node Version**  | 20                                                                 |
 | **Health Check**  | `/health`                                                          |
 
 > **IMPORTANTE:** deixe Auto-Deploy apontando para a branch `main`.
+>
+> O Start Command (`npm start`) já executa `prisma migrate deploy` antes de subir o servidor.
+> **Não coloque `prisma migrate deploy` no Build Command** — o build do Render não tem acesso ao banco de dados.
 
 ---
 
