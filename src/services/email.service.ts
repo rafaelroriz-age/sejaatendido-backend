@@ -14,6 +14,21 @@ function getTransporter() {
     port: ENV.SMTP_PORT,
     secure,
     auth,
+    // Pool de conexões para produção (evita abrir/fechar conexão a cada email)
+    pool: true,
+    maxConnections: 3,
+    // Rate limiting — Zoho Free: máx 500 emails/dia
+    rateDelta: 1000,
+    rateLimit: 5,
+  } as any);
+
+  // Verificar conexão SMTP ao primeiro uso
+  transporter.verify((err) => {
+    if (err) {
+      console.error('❌ Erro na conexão SMTP:', err.message);
+    } else {
+      console.log('✅ Servidor SMTP pronto para enviar emails');
+    }
   });
 
   return transporter;
@@ -580,8 +595,10 @@ export async function enviarEmail(options: EmailOptions): Promise<boolean> {
       return false;
     }
 
+    const fromAddress = ENV.EMAIL_FROM || `SejAAtendido <${ENV.SMTP_USER}>`;
+
     await getTransporter().sendMail({
-      from: `"SejaAtendido" <${ENV.SMTP_USER}>`,
+      from: fromAddress,
       to: options.to,
       subject: options.subject,
       html: options.html,

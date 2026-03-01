@@ -47,11 +47,12 @@ const EnvSchema = z
     // Firebase (FCM)
     FIREBASE_SERVICE_ACCOUNT_JSON: z.string().default(''),
 
-    // Email (SMTP)
-    SMTP_HOST: z.string().default('smtp.gmail.com'),
-    SMTP_PORT: z.coerce.number().int().positive().max(65535).default(587),
+    // Email (SMTP) — Zoho: smtp.zoho.com / 465 / SSL
+    SMTP_HOST: z.string().default('smtp.zoho.com'),
+    SMTP_PORT: z.coerce.number().int().positive().max(65535).default(465),
     SMTP_USER: z.string().default(''),
     SMTP_PASS: z.string().default(''),
+    EMAIL_FROM: z.string().default(''),
 
     // Frontend/Backend (links em emails)
     // Compat: aceita FRONTEND_URL ou FRONTEND_ORIGIN.
@@ -113,6 +114,7 @@ export const ENV = (() => {
     SMTP_PORT: process.env.SMTP_PORT,
     SMTP_USER: process.env.SMTP_USER,
     SMTP_PASS: process.env.SMTP_PASS,
+    EMAIL_FROM: process.env.EMAIL_FROM,
     FRONTEND_URL: process.env.FRONTEND_URL ?? (process.env as any).FRONTEND_ORIGIN,
     BACKEND_URL: process.env.BACKEND_URL,
     ENABLE_EMAIL_JOBS: process.env.ENABLE_EMAIL_JOBS,
