@@ -22,8 +22,8 @@ ALTER TABLE "Medico"
 
 -- 3) Backfill status from legacy `aprovado`
 UPDATE "Medico"
-SET "status" = CASE WHEN "aprovado" = TRUE THEN 'APROVADO' ELSE 'PENDENTE' END
-WHERE "status" IS NULL;
+SET "status" = (CASE WHEN "aprovado" = TRUE THEN 'APROVADO' ELSE 'PENDENTE' END)::"StatusMedico"
+WHERE "status" = 'PENDENTE'::"StatusMedico";
 
 -- 4) Ensure CRM values won't break unique constraint (historical records used empty string)
 UPDATE "Medico"
