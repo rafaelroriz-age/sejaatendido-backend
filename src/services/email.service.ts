@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import { ENV } from '../env.js';
+import { logger, serializeError } from '../logger/winston.js';
 
 let transporter: nodemailer.Transporter | null = null;
 
@@ -25,9 +26,9 @@ function getTransporter() {
   // Verificar conexão SMTP ao primeiro uso
   transporter.verify((err) => {
     if (err) {
-      console.error('❌ Erro na conexão SMTP:', err.message);
+      logger.warn('smtp_verify_failed', { error: serializeError(err) });
     } else {
-      console.log('✅ Servidor SMTP pronto para enviar emails');
+      logger.info('smtp_ready');
     }
   });
 
@@ -591,7 +592,9 @@ export async function enviarEmail(options: EmailOptions): Promise<boolean> {
   try {
     // Verificar se SMTP está configurado
     if (!ENV.SMTP_USER || !ENV.SMTP_PASS) {
-      console.warn('⚠️ SMTP não configurado. Email não enviado:', options.subject);
+      logger.warn('smtp_not_configured', {
+        ...(ENV.NODE_ENV !== 'production' ? { subject: options.subject } : {}),
+      });
       return false;
     }
 
@@ -604,10 +607,15 @@ export async function enviarEmail(options: EmailOptions): Promise<boolean> {
       html: options.html,
     });
 
-    console.log(`✉️ Email enviado para ${options.to}: ${options.subject}`);
+    const at = options.to.lastIndexOf('@');
+    const toDomain = at > -1 ? options.to.slice(at + 1).toLowerCase() : undefined;
+    logger.info('email_sent', {
+      ...(toDomain ? { toDomain } : {}),
+      ...(ENV.NODE_ENV !== 'production' ? { subject: options.subject } : {}),
+    });
     return true;
   } catch (error) {
-    console.error('❌ Erro ao enviar email:', error);
+    logger.error('email_send_failed', { error: serializeError(error) });
     return false;
   }
 }

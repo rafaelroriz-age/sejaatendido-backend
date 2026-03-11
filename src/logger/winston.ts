@@ -3,6 +3,26 @@ import { ENV } from '../env.js';
 
 const isProd = ENV.NODE_ENV === 'production';
 
+export function serializeError(err: unknown): { name?: string; message: string; stack?: string } {
+  if (err instanceof Error) {
+    return {
+      name: err.name,
+      message: err.message,
+      stack: isProd ? undefined : err.stack,
+    };
+  }
+
+  if (typeof err === 'string') {
+    return { message: err };
+  }
+
+  try {
+    return { message: JSON.stringify(err) };
+  } catch {
+    return { message: 'Unknown error' };
+  }
+}
+
 export const logger = winston.createLogger({
   level: ENV.LOG_LEVEL,
   format: winston.format.combine(
@@ -33,9 +53,13 @@ export function requestLogger() {
       const ms = Date.now() - start;
       const status = res.statusCode;
       const level = status >= 500 ? 'error' : status >= 400 ? 'warn' : 'info';
+
+      const originalUrl = typeof req.originalUrl === 'string' ? req.originalUrl : '';
+      const pathNoQuery = originalUrl ? originalUrl.split('?')[0] : undefined;
       logger.log(level, 'http_request', {
         method: req.method,
-        path: req.originalUrl,
+        // Não loga querystring (pode conter tokens como ?token=...)
+        path: pathNoQuery ?? req.path,
         status,
         durationMs: ms,
         ip: req.ip,

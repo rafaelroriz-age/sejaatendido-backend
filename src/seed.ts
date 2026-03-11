@@ -11,10 +11,12 @@ async function run(){
   const pac = await prisma.usuario.upsert({ where:{ email:'paciente@seja.com' }, update:{}, create:{ nome:'Joao', email:'paciente@seja.com', senhaHash: await bcrypt.hash(PACIENTE_PASSWORD,10), tipo:'PACIENTE' }});
   await prisma.paciente.upsert({ where:{ usuarioId: pac.id }, update:{}, create:{ usuarioId: pac.id }});
   console.log('seed done');
-  console.log('Credentials (dev only):');
-  console.log('admin@seja.com /', ADMIN_PASSWORD);
-  console.log('medico@seja.com /', MEDICO_PASSWORD);
-  console.log('paciente@seja.com /', PACIENTE_PASSWORD);
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('Credentials (dev only):');
+    console.log('admin@seja.com /', ADMIN_PASSWORD);
+    console.log('medico@seja.com /', MEDICO_PASSWORD);
+    console.log('paciente@seja.com /', PACIENTE_PASSWORD);
+  }
   process.exit(0);
 }
 run().catch(e=>{ console.error(e); process.exit(1); });

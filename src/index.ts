@@ -28,13 +28,13 @@ import systemRoutes from './routes/system.js';
 
 // Garante que rejeições/exceções não tratadas não derrubem o processo
 process.on('unhandledRejection', (reason) => {
-  console.error('[unhandledRejection]', reason);
+  logger.error('unhandledRejection', { reason: reason instanceof Error ? { name: reason.name, message: reason.message } : String(reason) });
   // Não encerra — apenas loga
 });
 process.on('uncaughtException', (err) => {
   // Apenas loga — não encerra. Erros fatais reais (como falta de env) já
   // são lançados antes do listen() e impedem o processo de subir.
-  console.error('[uncaughtException]', err);
+  logger.error('uncaughtException', { err: err instanceof Error ? { name: err.name, message: err.message, stack: err.stack } : String(err) });
 });
 
 const app = express();
@@ -43,7 +43,7 @@ const app = express();
 app.disable('x-powered-by');
 
 // Importante para deploy atrás de proxy (Render, Nginx, etc.)
-app.set('trust proxy', 1);
+app.set('trust proxy', ENV.NODE_ENV === 'production' ? 1 : 0);
 
 // Middlewares globais
 const allowAllOrigins = ENV.CORS_ORIGIN === '*';
@@ -53,6 +53,59 @@ const allowedOrigins = allowAllOrigins
       .map((o) => o.trim())
       .filter(Boolean);
 
+function isOriginAllowed(origin: string, allowedList: string[]): boolean {
+  // Normaliza o origin recebido (pode ser inválido em alguns clientes)
+  let originUrl: URL | null = null;
+  try {
+    originUrl = new URL(origin);
+  } catch {
+    originUrl = null;
+  }
+
+  for (const rawAllowed of allowedList) {
+    const allowed = rawAllowed.trim();
+    if (!allowed) continue;
+
+    // Match exato (mais seguro)
+    if (origin === allowed) return true;
+
+    // Suporte a wildcard de subdomínio (ex: "https://*.vercel.app" ou "*.vercel.app")
+    const allowedHasScheme = allowed.includes('://');
+    const allowedValue = allowedHasScheme ? allowed : `https://${allowed}`;
+
+    let allowedUrl: URL | null = null;
+    try {
+      allowedUrl = new URL(allowedValue);
+    } catch {
+      allowedUrl = null;
+    }
+
+    if (!originUrl || !allowedUrl) continue;
+
+    const allowedHost = allowedUrl.hostname;
+    const originHost = originUrl.hostname;
+
+    // Se o allowlist incluiu scheme, exigimos o mesmo scheme
+    if (allowedHasScheme && originUrl.protocol !== allowedUrl.protocol) continue;
+
+    // Match hostname exato
+    if (!allowedHost.includes('*')) {
+      if (originHost === allowedHost) return true;
+      continue;
+    }
+
+    // Wildcard somente no formato "*.dominio.tld"
+    if (allowedHost.startsWith('*.')) {
+      const suffix = allowedHost.slice(1); // ".dominio.tld"
+      if (originHost.endsWith(suffix) && originHost.length > suffix.length) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
 app.use(
   cors({
     origin: (origin, callback) => {
@@ -60,7 +113,7 @@ app.use(
       if (!origin) return callback(null, true);
       if (allowAllOrigins) return callback(null, true);
 
-      const ok = allowedOrigins.some((allowed) => origin === allowed || origin.includes(allowed));
+      const ok = isOriginAllowed(origin, allowedOrigins);
       return ok ? callback(null, true) : callback(new Error(`Origin ${origin} not allowed by CORS`));
     },
     // Se aceitar qualquer origin, NÃO use cookies/credenciais
@@ -151,7 +204,7 @@ app.use(errorHandler);
 try {
   startEmailJobs();
 } catch (e) {
-  console.error('Falha ao iniciar email jobs (não fatal):', e);
+  logger.warn('email_jobs_start_failed', { error: e instanceof Error ? { name: e.name, message: e.message } : String(e) });
 }
 
 // MongoDB desabilitado — reabilitar quando necessário:

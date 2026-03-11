@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import rateLimit from 'express-rate-limit';
+import crypto from 'crypto';
 import { prisma } from '../utils/prisma.js';
 import { authMiddleware, requireRole } from '../middlewares/auth.middleware.js';
 import jwt from 'jsonwebtoken';
@@ -10,6 +11,7 @@ import { enviarPushParaUsuario } from '../services/push.service.js';
 import { run15MinReminders, runDailyReminders, runRatingEmails, runAutoConcludeConsultations } from '../jobs/email.jobs.js';
 import { gerarTokenEHash, sha256Hex } from '../utils/secureTokens.js';
 import { recuperarSenhaSchema, resetarSenhaSchema } from '../validators/schemas.js';
+import { logger, serializeError } from '../logger/winston.js';
 
 const r = Router();
 
@@ -31,7 +33,13 @@ const passwordResetLimiter = rateLimit({
 
 function cronOrAdminGuard(req: Request, res: Response, next: any) {
   const secret = req.header('x-cron-secret');
-  if (ENV.CRON_SECRET && secret === ENV.CRON_SECRET) return next();
+
+  if (ENV.CRON_SECRET && typeof secret === 'string') {
+    // Evita leaks por timing attack em comparação de segredo
+    const a = Buffer.from(secret);
+    const b = Buffer.from(ENV.CRON_SECRET);
+    if (a.length === b.length && crypto.timingSafeEqual(a, b)) return next();
+  }
   return authMiddleware(req as any, res as any, () => requireRole('ADMIN')(req as any, res as any, next));
 }
 
@@ -168,7 +176,7 @@ r.post(
         consultas: result.consultasProcessadas,
       });
     } catch (e) {
-      console.error(e);
+      logger.error('email_jobs_daily_reminders_failed', { error: serializeError(e) });
       res.status(500).json({ erro: 'Erro ao enviar lembretes' });
     }
   }
@@ -182,7 +190,7 @@ r.post('/jobs/lembretes-15m', cronOrAdminGuard, async (req: Request, res: Respon
     const result = await run15MinReminders();
     res.json(result);
   } catch (e) {
-    console.error(e);
+    logger.error('email_jobs_15m_reminders_failed', { error: serializeError(e) });
     res.status(500).json({ erro: 'Erro ao enviar lembretes 15m' });
   }
 });
@@ -195,7 +203,7 @@ r.post('/jobs/avaliacao', cronOrAdminGuard, async (req: Request, res: Response) 
     const result = await runRatingEmails();
     res.json(result);
   } catch (e) {
-    console.error(e);
+    logger.error('email_jobs_rating_failed', { error: serializeError(e) });
     res.status(500).json({ erro: 'Erro ao enviar emails de avaliação' });
   }
 });
@@ -208,7 +216,7 @@ r.post('/jobs/concluir-consultas', cronOrAdminGuard, async (req: Request, res: R
     const result = await runAutoConcludeConsultations();
     res.json(result);
   } catch (e) {
-    console.error(e);
+    logger.error('email_jobs_conclude_consultations_failed', { error: serializeError(e) });
     res.status(500).json({ erro: 'Erro ao concluir consultas' });
   }
 });

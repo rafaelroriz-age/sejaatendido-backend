@@ -13,6 +13,7 @@ import {
   signAccessToken,
 } from '../utils/authTokens.js';
 import jwt from 'jsonwebtoken';
+import { logger, serializeError } from '../logger/winston.js';
 
 const googleClient = ENV.GOOGLE_CLIENT_ID ? new OAuth2Client(ENV.GOOGLE_CLIENT_ID) : null;
 
@@ -72,7 +73,7 @@ export async function registro(req:Request, res:Response){
 
       await emailService.enviarConfirmacaoEmail(user.email, user.nome, token);
     } catch (e) {
-      console.warn('Falha ao enviar confirmação de email:', e);
+      logger.warn('email_confirm_send_failed', { error: serializeError(e) });
     }
 
     const access = signAccessToken({ userId: user.id, tipo: user.tipo });
@@ -88,7 +89,7 @@ export async function registro(req:Request, res:Response){
         ? { mensagem: 'Cadastro realizado. Seu perfil será analisado por um administrador antes de liberar o acesso.' }
         : {}),
     });
-  }catch(e){ console.error(e); res.status(500).json({ erro:'registro falhou' }); }
+  }catch(e){ logger.error('auth_register_failed', { error: serializeError(e) }); res.status(500).json({ erro:'registro falhou' }); }
 }
 
 export async function login(req:Request, res:Response){
@@ -137,7 +138,7 @@ export async function login(req:Request, res:Response){
       refreshToken: refresh.refreshToken,
       usuario:{ id:user.id, nome:user.nome, email:user.email, tipo:user.tipo },
     });
-  }catch(e){ console.error(e); res.status(500).json({ erro:'login falhou' }); }
+  }catch(e){ logger.error('auth_login_failed', { error: serializeError(e) }); res.status(500).json({ erro:'login falhou' }); }
 }
 
 // Google login: receive idToken from frontend (verify recommended)
@@ -178,7 +179,7 @@ export async function loginGoogle(req:Request, res:Response){
       refreshToken: refresh.refreshToken,
       usuario:{ id:user.id, nome:user.nome, email:user.email, tipo:user.tipo },
     });
-  }catch(e){ console.error(e); res.status(500).json({ erro:'google login falhou' }); }
+  }catch(e){ logger.error('auth_google_login_failed', { error: serializeError(e) }); res.status(500).json({ erro:'google login falhou' }); }
 }
 
 export async function refreshToken(req: Request, res: Response) {
@@ -199,7 +200,7 @@ export async function refreshToken(req: Request, res: Response) {
       refreshToken: rotated.refreshToken,
     });
   } catch (e) {
-    console.error(e);
+    logger.warn('auth_refresh_failed', { error: serializeError(e) });
     return res.status(400).json({ erro: 'Refresh token inválido' });
   }
 }
@@ -228,7 +229,7 @@ export async function logout(req: Request, res: Response) {
 
     return res.json({ mensagem: 'Logout realizado' });
   } catch (e) {
-    console.error(e);
+    logger.error('auth_logout_failed', { error: serializeError(e) });
     return res.status(500).json({ erro: 'Erro ao fazer logout' });
   }
 }
