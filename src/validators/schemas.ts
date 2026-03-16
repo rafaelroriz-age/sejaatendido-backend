@@ -127,6 +127,19 @@ export const atualizarMedicoSchema = z.object({
 });
 
 // =====================
+// DADOS BANCÁRIOS DO MÉDICO
+// =====================
+export const dadosBancariosSchema = z.object({
+  tipoChavePix: z.enum(['CPF', 'CNPJ', 'EMAIL', 'TELEFONE', 'ALEATORIA']),
+  valorChavePix: z.string().trim().min(1, 'Valor da chave Pix é obrigatório').max(200),
+  banco: z.string().trim().max(100).optional(),
+  agencia: z.string().trim().max(20).optional(),
+  conta: z.string().trim().max(30).optional(),
+  mercadopagoAccessToken: z.string().trim().max(500).optional(),
+  mercadopagoUserId: z.string().trim().max(100).optional(),
+});
+
+// =====================
 // USUÁRIO SCHEMAS
 // =====================
 export const atualizarUsuarioSchema = z.object({

@@ -2,11 +2,12 @@ import { Router, Request, Response } from 'express';
 import { prisma } from '../utils/prisma.js';
 import { authMiddleware, requireRole } from '../middlewares/auth.middleware.js';
 import { validate } from '../middlewares/validate.middleware.js';
-import { atualizarMedicoSchema, atualizarConsultaSchema } from '../validators/schemas.js';
+import { atualizarMedicoSchema, atualizarConsultaSchema, dadosBancariosSchema } from '../validators/schemas.js';
 import emailService from '../services/email.service.js';
 import { enviarPushParaUsuario } from '../services/push.service.js';
 import { gerarTokenEHash } from '../utils/secureTokens.js';
 import { ENV } from '../env.js';
+import { encrypt, decrypt } from '../services/crypto.service.js';
 
 const r = Router();
 
@@ -319,6 +320,148 @@ r.post('/me/documentos', authMiddleware, requireRole('MEDICO'), async (req: Requ
   } catch (e) {
     console.error(e);
     res.status(500).json({ erro: 'Erro ao salvar documento' });
+  }
+});
+
+// =====================
+// DADOS BANCÁRIOS / PIX
+// =====================
+
+// Consultar dados bancários do médico logado
+r.get('/me/dados-bancarios', authMiddleware, requireRole('MEDICO'), async (req: Request, res: Response) => {
+  try {
+    const medico = await prisma.medico.findUnique({
+      where: { usuarioId: req.userId! },
+      select: {
+        tipoChavePix: true,
+        valorChavePix: true,
+        banco: true,
+        agencia: true,
+        conta: true,
+        mpUserId: true,
+        mpAccessTokenEncrypted: true,
+      },
+    });
+
+    if (!medico) return res.status(404).json({ erro: 'Médico não encontrado' });
+
+    res.json({
+      tipoChavePix: medico.tipoChavePix,
+      valorChavePix: medico.valorChavePix,
+      banco: medico.banco,
+      agencia: medico.agencia,
+      conta: medico.conta,
+      mpUserId: medico.mpUserId,
+      mpAccessTokenConfigured: !!medico.mpAccessTokenEncrypted,
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ erro: 'Erro ao buscar dados bancários' });
+  }
+});
+
+// Salvar / atualizar dados bancários
+r.put(
+  '/me/dados-bancarios',
+  authMiddleware,
+  requireRole('MEDICO'),
+  validate(dadosBancariosSchema),
+  async (req: Request, res: Response) => {
+    try {
+      const medico = await prisma.medico.findUnique({ where: { usuarioId: req.userId! } });
+      if (!medico) return res.status(404).json({ erro: 'Médico não encontrado' });
+
+      const { tipoChavePix, valorChavePix, banco, agencia, conta, mercadopagoAccessToken, mercadopagoUserId } = req.body;
+
+      let mpAccessTokenEncrypted: string | null = medico.mpAccessTokenEncrypted;
+      if (mercadopagoAccessToken) {
+        if (!ENV.ENCRYPTION_KEY) {
+          return res.status(503).json({ erro: 'Criptografia não configurada (ENCRYPTION_KEY ausente)' });
+        }
+        mpAccessTokenEncrypted = encrypt(mercadopagoAccessToken);
+      }
+
+      const atualizado = await prisma.medico.update({
+        where: { id: medico.id },
+        data: {
+          tipoChavePix,
+          valorChavePix,
+          banco: banco || null,
+          agencia: agencia || null,
+          conta: conta || null,
+          mpAccessTokenEncrypted,
+          mpUserId: mercadopagoUserId || medico.mpUserId,
+        },
+        select: {
+          tipoChavePix: true,
+          valorChavePix: true,
+          banco: true,
+          agencia: true,
+          conta: true,
+          mpUserId: true,
+          mpAccessTokenEncrypted: true,
+        },
+      });
+
+      res.json({
+        tipoChavePix: atualizado.tipoChavePix,
+        valorChavePix: atualizado.valorChavePix,
+        banco: atualizado.banco,
+        agencia: atualizado.agencia,
+        conta: atualizado.conta,
+        mpUserId: atualizado.mpUserId,
+        mpAccessTokenConfigured: !!atualizado.mpAccessTokenEncrypted,
+      });
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ erro: 'Erro ao salvar dados bancários' });
+    }
+  }
+);
+
+// =====================
+// REPASSES DO MÉDICO
+// =====================
+
+// Listar repasses do médico logado
+r.get('/me/repasses', authMiddleware, requireRole('MEDICO'), async (req: Request, res: Response) => {
+  try {
+    const medico = await prisma.medico.findUnique({ where: { usuarioId: req.userId! } });
+    if (!medico) return res.status(404).json({ erro: 'Médico não encontrado' });
+
+    const { status } = req.query;
+
+    const repasses = await prisma.repasse.findMany({
+      where: {
+        medicoId: medico.id,
+        ...(status && { status: status as any }),
+      },
+      include: {
+        consulta: {
+          select: {
+            id: true,
+            data: true,
+            paciente: { include: { usuario: { select: { nome: true } } } },
+          },
+        },
+      },
+      orderBy: { criadoEm: 'desc' },
+    });
+
+    const totalPendente = repasses.filter((r) => r.status === 'PENDENTE').reduce((acc, r) => acc + r.valorRepasse, 0);
+    const totalProcessado = repasses.filter((r) => r.status === 'PROCESSADO').reduce((acc, r) => acc + r.valorRepasse, 0);
+
+    res.json({
+      repasses,
+      resumo: {
+        totalPendenteCentavos: totalPendente,
+        totalProcessadoCentavos: totalProcessado,
+        count: repasses.length,
+      },
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ erro: 'Erro ao listar repasses' });
   }
 });
 

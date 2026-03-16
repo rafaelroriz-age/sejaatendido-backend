@@ -2,6 +2,7 @@ import cron from 'node-cron';
 import { prisma } from '../utils/prisma.js';
 import emailService from '../services/email.service.js';
 import { enviarPushParaUsuario } from '../services/push.service.js';
+import { notificarEmail, notificarPush, notificarWhatsApp } from '../services/notification.service.js';
 import { ENV } from '../env.js';
 
 type JobResult = {
@@ -58,14 +59,20 @@ export async function runDailyReminders(): Promise<JobResult> {
     let sentAny = false;
 
     try {
-      const ok = await emailService.enviarLembreteConsulta(
-        c.paciente.usuario.email,
-        c.paciente.usuario.nome,
-        c.medico.usuario.nome,
-        new Date(c.data),
-        c.meetLink || undefined
-      );
-      if (ok) {
+      const r = await notificarEmail({
+        consultaId: c.id,
+        usuarioId: c.paciente.usuario.id,
+        tipoEvento: 'LEMBRETE_24H',
+        enviar: () =>
+          emailService.enviarLembreteConsulta(
+            c.paciente.usuario.email,
+            c.paciente.usuario.nome,
+            c.medico.usuario.nome,
+            new Date(c.data),
+            c.meetLink || undefined,
+          ),
+      });
+      if (r.ok) {
         emailsEnviados += 1;
         sentAny = true;
       }
@@ -74,15 +81,17 @@ export async function runDailyReminders(): Promise<JobResult> {
     }
 
     try {
-      const r = await enviarPushParaUsuario({
+      const r = await notificarPush({
+        consultaId: c.id,
         usuarioId: c.paciente.usuario.id,
+        tipoEvento: 'LEMBRETE_24H',
         titulo: 'Lembrete de consulta',
         corpo: 'Sua consulta é amanhã',
         data: { tipo: 'LEMBRETE_CONSULTA', consultaId: c.id },
       });
       if (r.ok) {
-        pushEnviados += r.enviado;
-        if (r.enviado > 0) sentAny = true;
+        pushEnviados += 1;
+        sentAny = true;
       }
     } catch (e) {
       console.warn('Falha ao enviar lembrete diário (push)');
@@ -133,14 +142,20 @@ export async function run15MinReminders(): Promise<JobResult> {
     let sentAny = false;
 
     try {
-      const ok = await emailService.enviarLembrete15MinAntes(
-        c.paciente.usuario.email,
-        c.paciente.usuario.nome,
-        c.medico.usuario.nome,
-        new Date(c.data),
-        c.meetLink || undefined
-      );
-      if (ok) {
+      const r = await notificarEmail({
+        consultaId: c.id,
+        usuarioId: c.paciente.usuario.id,
+        tipoEvento: 'LEMBRETE_1H',
+        enviar: () =>
+          emailService.enviarLembrete15MinAntes(
+            c.paciente.usuario.email,
+            c.paciente.usuario.nome,
+            c.medico.usuario.nome,
+            new Date(c.data),
+            c.meetLink || undefined,
+          ),
+      });
+      if (r.ok) {
         emailsEnviados += 1;
         sentAny = true;
       }
@@ -149,15 +164,17 @@ export async function run15MinReminders(): Promise<JobResult> {
     }
 
     try {
-      const r = await enviarPushParaUsuario({
+      const r = await notificarPush({
+        consultaId: c.id,
         usuarioId: c.paciente.usuario.id,
+        tipoEvento: 'LEMBRETE_1H',
         titulo: 'Consulta em 15 minutos',
         corpo: 'Sua consulta começa em breve',
         data: { tipo: 'LEMBRETE_15M', consultaId: c.id },
       });
       if (r.ok) {
-        pushEnviados += r.enviado;
-        if (r.enviado > 0) sentAny = true;
+        pushEnviados += 1;
+        sentAny = true;
       }
     } catch {
       console.warn('Falha ao enviar lembrete 15m (push)');
@@ -210,14 +227,20 @@ export async function runRatingEmails(): Promise<JobResult> {
     const link = `${ENV.FRONTEND_URL}/avaliacao?consultaId=${encodeURIComponent(c.id)}`;
 
     try {
-      const ok = await emailService.enviarSolicitacaoAvaliacao(
-        c.paciente.usuario.email,
-        c.paciente.usuario.nome,
-        c.medico.usuario.nome,
-        new Date(c.data),
-        link
-      );
-      if (ok) {
+      const r = await notificarEmail({
+        consultaId: c.id,
+        usuarioId: c.paciente.usuario.id,
+        tipoEvento: 'AVALIACAO_SOLICITADA',
+        enviar: () =>
+          emailService.enviarSolicitacaoAvaliacao(
+            c.paciente.usuario.email,
+            c.paciente.usuario.nome,
+            c.medico.usuario.nome,
+            new Date(c.data),
+            link,
+          ),
+      });
+      if (r.ok) {
         emailsEnviados += 1;
         sentAny = true;
       }
@@ -226,15 +249,17 @@ export async function runRatingEmails(): Promise<JobResult> {
     }
 
     try {
-      const r = await enviarPushParaUsuario({
+      const r = await notificarPush({
+        consultaId: c.id,
         usuarioId: c.paciente.usuario.id,
+        tipoEvento: 'AVALIACAO_SOLICITADA',
         titulo: 'Avalie sua consulta',
         corpo: 'Sua opinião é importante. Avalie agora.',
         data: { tipo: 'AVALIACAO', consultaId: c.id },
       });
       if (r.ok) {
-        pushEnviados += r.enviado;
-        if (r.enviado > 0) sentAny = true;
+        pushEnviados += 1;
+        sentAny = true;
       }
     } catch {
       console.warn('Falha ao enviar avaliação (push)');

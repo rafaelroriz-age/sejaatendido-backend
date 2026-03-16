@@ -10,6 +10,7 @@ import pagamentoRoutes from './routes/pagamentos.js';
 import usuarioRoutes from './routes/usuarios.js';
 import emailRoutes from './routes/emails.js';
 import notificacoesRoutes from './routes/notificacoes.js';
+import repassesRoutes from './routes/repasses.js';
 // Chat desabilitado (requer MongoDB)
 // import chatRoutes from './routes/chat.js';
 import apiRoutes from './routes/api.js';
@@ -189,6 +190,7 @@ app.use('/pagamentos', pagamentoRoutes);
 app.use('/usuarios', usuarioRoutes);
 app.use('/emails', emailRoutes);
 app.use('/notificacoes', notificacoesRoutes);
+app.use('/repasses', repassesRoutes);
 // Chat desabilitado (requer MongoDB)
 // app.use('/api/chat', chatRoutes);
 app.use('/api/chat', (_req, res) => res.status(503).json({ erro: 'Chat indisponível (MongoDB desabilitado)' }));

@@ -44,6 +44,12 @@ const EnvSchema = z
     MERCADOPAGO_ACCESS_TOKEN: z.string().default(''),
     MERCADOPAGO_WEBHOOK_SECRET: z.string().default(''),
 
+    // Taxa do app para split de pagamento (percentual retido pela plataforma)
+    TAXA_APP_PERCENTUAL: z.coerce.number().min(0).max(100).default(10),
+
+    // Criptografia (AES-256-GCM) — obrigatória para salvar tokens OAuth de médicos
+    ENCRYPTION_KEY: z.string().default(''),
+
     // Firebase (FCM)
     FIREBASE_SERVICE_ACCOUNT_JSON: z.string().default(''),
 
@@ -53,6 +59,11 @@ const EnvSchema = z
     SMTP_USER: z.string().default(''),
     SMTP_PASS: z.string().default(''),
     EMAIL_FROM: z.string().default(''),
+
+    // WhatsApp (Twilio)
+    TWILIO_ACCOUNT_SID: z.string().default(''),
+    TWILIO_AUTH_TOKEN: z.string().default(''),
+    TWILIO_WHATSAPP_FROM: z.string().default(''),
 
     // Frontend/Backend (links em emails)
     // Compat: aceita FRONTEND_URL ou FRONTEND_ORIGIN.
@@ -109,12 +120,17 @@ export const ENV = (() => {
     STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
     MERCADOPAGO_ACCESS_TOKEN: process.env.MERCADOPAGO_ACCESS_TOKEN,
     MERCADOPAGO_WEBHOOK_SECRET: process.env.MERCADOPAGO_WEBHOOK_SECRET,
+    TAXA_APP_PERCENTUAL: process.env.TAXA_APP_PERCENTUAL,
+    ENCRYPTION_KEY: process.env.ENCRYPTION_KEY,
     FIREBASE_SERVICE_ACCOUNT_JSON: firebaseServiceAccountJson,
     SMTP_HOST: process.env.SMTP_HOST,
     SMTP_PORT: process.env.SMTP_PORT,
     SMTP_USER: process.env.SMTP_USER,
     SMTP_PASS: process.env.SMTP_PASS,
     EMAIL_FROM: process.env.EMAIL_FROM,
+    TWILIO_ACCOUNT_SID: process.env.TWILIO_ACCOUNT_SID,
+    TWILIO_AUTH_TOKEN: process.env.TWILIO_AUTH_TOKEN,
+    TWILIO_WHATSAPP_FROM: process.env.TWILIO_WHATSAPP_FROM,
     FRONTEND_URL: process.env.FRONTEND_URL ?? (process.env as any).FRONTEND_ORIGIN,
     BACKEND_URL: process.env.BACKEND_URL,
     ENABLE_EMAIL_JOBS: process.env.ENABLE_EMAIL_JOBS,

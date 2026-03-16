@@ -49,10 +49,19 @@ model Medico {
   status         StatusMedico @default(PENDENTE)
   diplomaUrl     String?
   motivoRejeicao String?
+  // Dados bancários / Pix
+  tipoChavePix         TipoChavePix?
+  valorChavePix        String?
+  banco                String?
+  agencia              String?
+  conta                String?
+  mpAccessTokenEncrypted String?
+  mpUserId             String?
   createdAt      DateTime @default(now())
   documentos     Documento[]
   consultas      Consulta[]
   avaliacoes     Avaliacao[]
+  repasses       Repasse[]
   usuario        Usuario   @relation(fields:[usuarioId], references:[id])
 }
 
@@ -78,6 +87,7 @@ model Consulta {
   cancelTokenHash       String?
   cancelTokenExpiraEm   DateTime?
   pagamento  Pagamento?
+  repasse    Repasse?
   avaliacao Avaliacao?
   medico     Medico   @relation(fields:[medicoId], references:[id])
   paciente   Paciente @relation(fields:[pacienteId], references:[id])
@@ -205,4 +215,68 @@ model PasswordResetToken {
 
   @@index([usuarioId])
   @@index([expiraEm])
+}
+
+// =====================
+// DADOS BANCÁRIOS / PIX
+// =====================
+
+enum TipoChavePix {
+  CPF
+  CNPJ
+  EMAIL
+  TELEFONE
+  ALEATORIA
+}
+
+// =====================
+// REPASSE (SPLIT DE PAGAMENTO)
+// =====================
+
+enum StatusRepasse {
+  PENDENTE
+  PROCESSADO
+  FALHOU
+}
+
+model Repasse {
+  id            String        @id @default(uuid())
+  consultaId    String        @unique
+  medicoId      String
+  valorBruto    Int
+  taxaApp       Int
+  valorRepasse  Int
+  status        StatusRepasse @default(PENDENTE)
+  dataRepasse   DateTime?
+  criadoEm      DateTime      @default(now())
+
+  consulta      Consulta      @relation(fields: [consultaId], references: [id])
+  medico        Medico        @relation(fields: [medicoId], references: [id])
+
+  @@index([medicoId])
+  @@index([status])
+}
+
+// =====================
+// LOG DE NOTIFICAÇÕES
+// =====================
+
+enum CanalNotificacao {
+  EMAIL
+  PUSH
+  WHATSAPP
+}
+
+model NotificacaoLog {
+  id          String           @id @default(uuid())
+  consultaId  String?
+  usuarioId   String
+  canal       CanalNotificacao
+  tipoEvento  String
+  status      String           @default("ENVIADO")
+  enviadoEm   DateTime         @default(now())
+
+  @@index([consultaId])
+  @@index([usuarioId])
+  @@index([enviadoEm])
 }

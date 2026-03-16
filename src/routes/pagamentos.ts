@@ -12,6 +12,8 @@ import {
 import { ENV } from '../env.js';
 import emailService from '../services/email.service.js';
 import { enviarPushParaUsuario } from '../services/push.service.js';
+import { criarRepasse } from '../services/repasse.service.js';
+import { dispararPagamentoConfirmado } from '../services/notification.service.js';
 import {
   createCheckoutPreference,
   fetchPayment,
@@ -300,28 +302,36 @@ r.post('/webhook/mercadopago', async (req: Request, res: Response) => {
       return { ok: true as const, paid: true as const, notify: true as const, consulta, valorCentavos: atualizado.valorCentavos };
     });
 
-    // Notificações fora da transação
+    // Notificações + repasse fora da transação
     if ((result as any).notify && (result as any).consulta) {
       const consulta = (result as any).consulta as any;
       const valorCentavos = (result as any).valorCentavos as number;
 
       try {
-        await emailService.enviarPagamentoConfirmado(
-          consulta.paciente.usuario.email,
-          consulta.paciente.usuario.nome,
-          valorCentavos / 100,
-          consulta.medico.usuario.nome,
-          new Date(consulta.data)
-        );
-
-        await enviarPushParaUsuario({
-          usuarioId: consulta.paciente.usuario.id,
-          titulo: 'Pagamento confirmado',
-          corpo: 'Seu pagamento foi confirmado',
-          data: { tipo: 'PAGAMENTO_CONFIRMADO', consultaId: consulta.id },
+        await dispararPagamentoConfirmado({
+          consultaId: consulta.id,
+          paciente: {
+            usuarioId: consulta.paciente.usuario.id,
+            nome: consulta.paciente.usuario.nome,
+            email: consulta.paciente.usuario.email,
+          },
+          medicoNome: consulta.medico.usuario.nome,
+          valorCentavos,
+          data: new Date(consulta.data),
         });
       } catch (e) {
         console.warn('Falha ao enviar notificações de pagamento (Mercado Pago):', e);
+      }
+
+      // Cria registro de repasse (split)
+      try {
+        await criarRepasse({
+          consultaId: consulta.id,
+          medicoId: consulta.medicoId || consulta.medico?.id,
+          valorBrutoCentavos: valorCentavos,
+        });
+      } catch (e) {
+        console.warn('Falha ao criar repasse:', e);
       }
     }
 
@@ -442,22 +452,30 @@ r.post('/mercadopago/:pagamentoId/sync', authMiddleware, requireRole('PACIENTE',
       const valorCentavos = (result as any).valorCentavos as number;
 
       try {
-        await emailService.enviarPagamentoConfirmado(
-          consulta.paciente.usuario.email,
-          consulta.paciente.usuario.nome,
-          valorCentavos / 100,
-          consulta.medico.usuario.nome,
-          new Date(consulta.data)
-        );
-
-        await enviarPushParaUsuario({
-          usuarioId: consulta.paciente.usuario.id,
-          titulo: 'Pagamento confirmado',
-          corpo: 'Seu pagamento foi confirmado',
-          data: { tipo: 'PAGAMENTO_CONFIRMADO', consultaId: consulta.id },
+        await dispararPagamentoConfirmado({
+          consultaId: consulta.id,
+          paciente: {
+            usuarioId: consulta.paciente.usuario.id,
+            nome: consulta.paciente.usuario.nome,
+            email: consulta.paciente.usuario.email,
+          },
+          medicoNome: consulta.medico.usuario.nome,
+          valorCentavos,
+          data: new Date(consulta.data),
         });
       } catch (e) {
         console.warn('Falha ao enviar notificações de pagamento (Mercado Pago/sync):', e);
+      }
+
+      // Cria registro de repasse (split)
+      try {
+        await criarRepasse({
+          consultaId: consulta.id,
+          medicoId: consulta.medicoId || consulta.medico?.id,
+          valorBrutoCentavos: valorCentavos,
+        });
+      } catch (e) {
+        console.warn('Falha ao criar repasse (sync):', e);
       }
     }
 
@@ -698,22 +716,30 @@ r.post('/webhook/stripe', async (req: Request, res: Response) => {
         // Notificações apenas na primeira confirmação (evita duplicar em retries do Stripe)
         if (processed.ok && processed.consulta) {
           try {
-            await emailService.enviarPagamentoConfirmado(
-              processed.consulta.paciente.usuario.email,
-              processed.consulta.paciente.usuario.nome,
-              processed.valorCentavos / 100,
-              processed.consulta.medico.usuario.nome,
-              new Date(processed.consulta.data)
-            );
-
-            await enviarPushParaUsuario({
-              usuarioId: processed.consulta.paciente.usuario.id,
-              titulo: 'Pagamento confirmado',
-              corpo: 'Seu pagamento foi confirmado',
-              data: { tipo: 'PAGAMENTO_CONFIRMADO', consultaId: processed.consulta.id },
+            await dispararPagamentoConfirmado({
+              consultaId: processed.consulta.id,
+              paciente: {
+                usuarioId: processed.consulta.paciente.usuario.id,
+                nome: processed.consulta.paciente.usuario.nome,
+                email: processed.consulta.paciente.usuario.email,
+              },
+              medicoNome: processed.consulta.medico.usuario.nome,
+              valorCentavos: processed.valorCentavos,
+              data: new Date(processed.consulta.data),
             });
           } catch (e) {
             console.warn('Falha ao enviar notificações de pagamento (Stripe):', e);
+          }
+
+          // Cria registro de repasse (split)
+          try {
+            await criarRepasse({
+              consultaId: processed.consulta.id,
+              medicoId: processed.consulta.medico.id,
+              valorBrutoCentavos: processed.valorCentavos,
+            });
+          } catch (e) {
+            console.warn('Falha ao criar repasse (Stripe):', e);
           }
         }
 
