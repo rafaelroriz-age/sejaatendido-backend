@@ -215,3 +215,65 @@ export function mapMpPaymentTypeToMetodo(paymentTypeId?: string) {
   if (t === 'credit_card' || t === 'debit_card' || t === 'prepaid_card') return 'CARTAO' as const;
   return undefined;
 }
+
+/**
+ * Envia um Pix para o médico via Mercado Pago Disbursements API.
+ * Usa a chave Pix cadastrada do médico.
+ */
+export async function createPixPayout(params: {
+  amount: number; // valor em centavos
+  pixKeyType: string; // CPF, CNPJ, EMAIL, TELEFONE, ALEATORIA
+  pixKeyValue: string;
+  description: string;
+  externalReference: string; // cicloRepasseId
+}) {
+  if (!ENV.MERCADOPAGO_ACCESS_TOKEN) {
+    return { ok: false as const, erro: 'Mercado Pago não configurado' };
+  }
+
+  // Mapeia tipo de chave Pix para formato MP
+  const pixKeyTypeMap: Record<string, string> = {
+    CPF: 'cpf',
+    CNPJ: 'cnpj',
+    EMAIL: 'email',
+    TELEFONE: 'phone',
+    ALEATORIA: 'evp',
+  };
+
+  const mpPixKeyType = pixKeyTypeMap[params.pixKeyType] || 'evp';
+
+  const resp = await fetch('https://api.mercadopago.com/v1/transaction_orders', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${ENV.MERCADOPAGO_ACCESS_TOKEN}`,
+      'Content-Type': 'application/json',
+      'X-Idempotency-Key': params.externalReference,
+    },
+    body: JSON.stringify({
+      type: 'withdrawal',
+      external_reference: params.externalReference,
+      total_amount: (params.amount / 100).toFixed(2),
+      disbursements: [
+        {
+          amount: (params.amount / 100).toFixed(2),
+          fund_account: {
+            type: 'pix',
+            pix: {
+              type: mpPixKeyType,
+              id: params.pixKeyValue,
+            },
+          },
+          description: params.description,
+        },
+      ],
+    }),
+  });
+
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => '');
+    return { ok: false as const, erro: `Erro Mercado Pago (payout): ${text || resp.status}` };
+  }
+
+  const data = (await resp.json()) as { id?: string; status?: string };
+  return { ok: true as const, mpPaymentId: data.id || undefined, status: data.status };
+}

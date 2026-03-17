@@ -1,6 +1,7 @@
 import { prisma } from '../utils/prisma.js';
 import { ENV } from '../env.js';
 import { logger } from '../logger/winston.js';
+import { acumularSaldoPendente } from './saldo.service.js';
 
 /**
  * Cria um repasse após pagamento confirmado.
@@ -43,6 +44,13 @@ export async function criarRepasse(params: {
     valorRepasse,
     taxaPercentual: taxa,
   });
+
+  // Acumula no saldo pendente do médico
+  try {
+    await acumularSaldoPendente(params.medicoId, valorRepasse);
+  } catch (e) {
+    logger.warn('saldo_acumular_falhou', { medicoId: params.medicoId, error: e instanceof Error ? e.message : String(e) });
+  }
 
   return { ok: true, repasseId: repasse.id };
 }

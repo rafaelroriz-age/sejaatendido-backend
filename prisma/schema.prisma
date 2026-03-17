@@ -57,11 +57,17 @@ model Medico {
   conta                String?
   mpAccessTokenEncrypted String?
   mpUserId             String?
+  // Saldo semanal (centavos)
+  saldoPendente        Int      @default(0)
+  saldoALiberar        Int      @default(0)
+  saldoTotalRecebido   Int      @default(0)
+  proximoRepasse       DateTime?
   createdAt      DateTime @default(now())
   documentos     Documento[]
   consultas      Consulta[]
   avaliacoes     Avaliacao[]
   repasses       Repasse[]
+  ciclosRepasse  CicloRepasse[]
   usuario        Usuario   @relation(fields:[usuarioId], references:[id])
 }
 
@@ -248,13 +254,16 @@ model Repasse {
   valorRepasse  Int
   status        StatusRepasse @default(PENDENTE)
   dataRepasse   DateTime?
+  cicloRepasseId String?
   criadoEm      DateTime      @default(now())
 
   consulta      Consulta      @relation(fields: [consultaId], references: [id])
   medico        Medico        @relation(fields: [medicoId], references: [id])
+  cicloRepasse  CicloRepasse? @relation(fields: [cicloRepasseId], references: [id])
 
   @@index([medicoId])
   @@index([status])
+  @@index([cicloRepasseId])
 }
 
 // =====================
@@ -279,4 +288,38 @@ model NotificacaoLog {
   @@index([consultaId])
   @@index([usuarioId])
   @@index([enviadoEm])
+}
+
+// =====================
+// CICLO DE REPASSE SEMANAL
+// =====================
+
+enum StatusCicloRepasse {
+  PENDENTE
+  PROCESSANDO
+  CONCLUIDO
+  ERRO
+}
+
+model CicloRepasse {
+  id               String              @id @default(uuid())
+  medicoId         String
+  semanaInicio     DateTime
+  semanaFim        DateTime
+  valorBruto       Int                 @default(0)
+  taxaApp          Int                 @default(0)
+  valorRepasse     Int                 @default(0)
+  status           StatusCicloRepasse  @default(PENDENTE)
+  dataProcessamento DateTime?
+  mpPaymentId      String?
+  erroMsg          String?
+  criadoEm         DateTime            @default(now())
+
+  medico           Medico              @relation(fields: [medicoId], references: [id])
+  repasses         Repasse[]
+
+  @@unique([medicoId, semanaInicio])
+  @@index([medicoId])
+  @@index([status])
+  @@index([semanaInicio])
 }

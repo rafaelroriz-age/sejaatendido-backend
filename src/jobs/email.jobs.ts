@@ -3,7 +3,10 @@ import { prisma } from '../utils/prisma.js';
 import emailService from '../services/email.service.js';
 import { enviarPushParaUsuario } from '../services/push.service.js';
 import { notificarEmail, notificarPush, notificarWhatsApp } from '../services/notification.service.js';
+import { moverSaldoParaLiberar, processarRepassesSemanal } from '../services/saldo.service.js';
+import { createPixPayout } from '../services/mercadopago.service.js';
 import { ENV } from '../env.js';
+import { logger } from '../logger/winston.js';
 
 type JobResult = {
   ok: boolean;
@@ -327,5 +330,49 @@ export function startEmailJobs() {
   // Avaliação (a cada 15 min)
   cron.schedule('*/15 * * * *', () => {
     void withLock('avaliacao', runRatingEmails);
+  });
+
+  // =====================
+  // REPASSES SEMANAIS
+  // =====================
+
+  // Domingo 23:59 — consolida saldo pendente → a liberar, cria ciclo
+  cron.schedule('59 23 * * 0', () => {
+    void withLock('moverSaldo', async () => {
+      logger.info('cron_mover_saldo_inicio');
+      const r = await moverSaldoParaLiberar();
+      logger.info('cron_mover_saldo_fim', r);
+      return r;
+    });
+  });
+
+  // Segunda 08:00 — processa pagamentos automáticos via MP Pix
+  cron.schedule('0 8 * * 1', () => {
+    void withLock('processarRepasses', async () => {
+      logger.info('cron_processar_repasses_inicio');
+      const r = await processarRepassesSemanal(async (params) => {
+        const medico = await prisma.medico.findUnique({
+          where: { id: params.medicoId },
+          select: { tipoChavePix: true, valorChavePix: true },
+        });
+        if (!medico?.tipoChavePix || !medico?.valorChavePix) {
+          return { ok: false, erro: 'Médico sem chave Pix' };
+        }
+        const result = await createPixPayout({
+          amount: params.valorCentavos,
+          pixKeyType: medico.tipoChavePix,
+          pixKeyValue: medico.valorChavePix,
+          description: `SejaAtendido - Repasse semanal`,
+          externalReference: params.cicloId,
+        });
+        return {
+          ok: result.ok,
+          mpPaymentId: result.ok ? result.mpPaymentId : undefined,
+          erro: result.ok ? undefined : result.erro,
+        };
+      });
+      logger.info('cron_processar_repasses_fim', r);
+      return r;
+    });
   });
 }

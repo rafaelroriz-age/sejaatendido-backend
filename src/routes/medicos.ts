@@ -423,6 +423,122 @@ r.put(
 // REPASSES DO MÉDICO
 // =====================
 
+// Saldo do médico (resumo tipo Uber/iFood)
+r.get('/me/saldo', authMiddleware, requireRole('MEDICO'), async (req: Request, res: Response) => {
+  try {
+    const medico = await prisma.medico.findUnique({
+      where: { usuarioId: req.userId! },
+      select: {
+        id: true,
+        saldoPendente: true,
+        saldoALiberar: true,
+        saldoTotalRecebido: true,
+        proximoRepasse: true,
+      },
+    });
+    if (!medico) return res.status(404).json({ erro: 'Médico não encontrado' });
+
+    // Ganhos de hoje (repasses criados a partir de hoje)
+    const hojeDt = new Date();
+    hojeDt.setHours(0, 0, 0, 0);
+    const ganhosHojeArr = await prisma.repasse.aggregate({
+      where: { medicoId: medico.id, criadoEm: { gte: hojeDt } },
+      _sum: { valorRepasse: true },
+    });
+
+    // Ganhos da semana (domingo a sábado)
+    const diaSemana = hojeDt.getDay(); // 0 = domingo
+    const inicioSemana = new Date(hojeDt);
+    inicioSemana.setDate(inicioSemana.getDate() - diaSemana);
+    const ganhosSemanaArr = await prisma.repasse.aggregate({
+      where: { medicoId: medico.id, criadoEm: { gte: inicioSemana } },
+      _sum: { valorRepasse: true },
+    });
+
+    res.json({
+      saldoPendenteCentavos: medico.saldoPendente,
+      saldoALiberarCentavos: medico.saldoALiberar,
+      saldoTotalRecebidoCentavos: medico.saldoTotalRecebido,
+      ganhosHojeCentavos: ganhosHojeArr._sum.valorRepasse || 0,
+      ganhosSemanaCentavos: ganhosSemanaArr._sum.valorRepasse || 0,
+      proximoRepasse: medico.proximoRepasse,
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ erro: 'Erro ao buscar saldo' });
+  }
+});
+
+// Listar ciclos de repasse do médico (paginado)
+r.get('/me/ciclos-repasse', authMiddleware, requireRole('MEDICO'), async (req: Request, res: Response) => {
+  try {
+    const medico = await prisma.medico.findUnique({ where: { usuarioId: req.userId! } });
+    if (!medico) return res.status(404).json({ erro: 'Médico não encontrado' });
+
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 10));
+    const skip = (page - 1) * limit;
+
+    const [ciclos, total] = await Promise.all([
+      prisma.cicloRepasse.findMany({
+        where: { medicoId: medico.id },
+        orderBy: { semanaInicio: 'desc' },
+        skip,
+        take: limit,
+      }),
+      prisma.cicloRepasse.count({ where: { medicoId: medico.id } }),
+    ]);
+
+    res.json({
+      ciclos,
+      paginacao: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ erro: 'Erro ao listar ciclos de repasse' });
+  }
+});
+
+// Detalhe de um ciclo (com consultas vinculadas)
+r.get('/me/ciclos-repasse/:id', authMiddleware, requireRole('MEDICO'), async (req: Request, res: Response) => {
+  try {
+    const medico = await prisma.medico.findUnique({ where: { usuarioId: req.userId! } });
+    if (!medico) return res.status(404).json({ erro: 'Médico não encontrado' });
+
+    const ciclo = await prisma.cicloRepasse.findUnique({
+      where: { id: req.params.id },
+      include: {
+        repasses: {
+          include: {
+            consulta: {
+              select: {
+                id: true,
+                data: true,
+                paciente: { include: { usuario: { select: { nome: true } } } },
+              },
+            },
+          },
+          orderBy: { criadoEm: 'desc' },
+        },
+      },
+    });
+
+    if (!ciclo || ciclo.medicoId !== medico.id) {
+      return res.status(404).json({ erro: 'Ciclo de repasse não encontrado' });
+    }
+
+    res.json(ciclo);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ erro: 'Erro ao buscar ciclo de repasse' });
+  }
+});
+
 // Listar repasses do médico logado
 r.get('/me/repasses', authMiddleware, requireRole('MEDICO'), async (req: Request, res: Response) => {
   try {
