@@ -620,6 +620,27 @@ export async function enviarEmail(options: EmailOptions): Promise<boolean> {
   }
 }
 
+export async function verificarSMTP(): Promise<{ ok: true } | { ok: false; erro: string }> {
+  try {
+    if (!ENV.SMTP_USER || !ENV.SMTP_PASS) {
+      return { ok: false, erro: 'SMTP_USER/SMTP_PASS não configurados' };
+    }
+
+    const t = getTransporter();
+    await new Promise<void>((resolve, reject) => {
+      t.verify((err) => {
+        if (err) return reject(err);
+        resolve();
+      });
+    });
+
+    return { ok: true };
+  } catch (e) {
+    logger.warn('smtp_verify_failed', { error: serializeError(e) });
+    return { ok: false, erro: serializeError(e).message };
+  }
+}
+
 // Funções de conveniência para cada tipo de email
 export async function enviarConfirmacaoEmail(email: string, nome: string, token: string) {
   const template = templates.confirmacaoEmail(nome, token);
