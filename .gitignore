@@ -16,6 +16,9 @@ build/
 # Logs
 logs/
 
+# WhatsApp Baileys auth state (contains session credentials)
+auth_info/
+
 # Generic
 *.log
 

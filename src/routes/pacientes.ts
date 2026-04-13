@@ -5,6 +5,7 @@ import { validate } from '../middlewares/validate.middleware.js';
 import { criarConsultaSchema } from '../validators/schemas.js';
 import emailService from '../services/email.service.js';
 import { enviarPushParaUsuario } from '../services/push.service.js';
+import { notifyAppointmentCreated, notifyAppointmentCancelled } from '../services/whatsappNotifier.service.js';
 
 const r = Router();
 
@@ -135,6 +136,17 @@ r.post(
       } catch (e) {
         console.warn('Falha ao enviar push para médico:', e);
       }
+
+      // WhatsApp (best-effort, não bloqueia resposta)
+      const pacienteUsuario = await prisma.usuario.findUnique({ where: { id: userId }, select: { telefone: true } });
+      const medicoUsuario = await prisma.usuario.findUnique({ where: { id: medico.usuarioId }, select: { telefone: true } });
+      notifyAppointmentCreated({
+        consultaId: consulta.id,
+        paciente: { usuarioId: userId, nome: paciente.usuario.nome, telefone: pacienteUsuario?.telefone },
+        medico: { usuarioId: medico.usuario.id, nome: medico.usuario.nome, telefone: medicoUsuario?.telefone },
+        data: dataConsulta,
+        tipo: medico.especialidades?.[0] || 'Consulta',
+      }).catch(() => {});
 
       res.status(201).json(consulta);
     } catch (e) {
@@ -287,6 +299,16 @@ r.delete('/consultas/:id', authMiddleware, requireRole('PACIENTE'), async (req: 
     } catch (e) {
       console.warn('Falha ao enviar push de cancelamento:', e);
     }
+
+    // WhatsApp cancelamento (best-effort, não bloqueia resposta)
+    const pacTel = await prisma.usuario.findUnique({ where: { id: consulta.paciente.usuario.id }, select: { telefone: true } });
+    const medTel = await prisma.usuario.findUnique({ where: { id: consulta.medico.usuario.id }, select: { telefone: true } });
+    notifyAppointmentCancelled({
+      consultaId: consulta.id,
+      paciente: { usuarioId: consulta.paciente.usuario.id, nome: consulta.paciente.usuario.nome, telefone: pacTel?.telefone },
+      medico: { usuarioId: consulta.medico.usuario.id, nome: consulta.medico.usuario.nome, telefone: medTel?.telefone },
+      data: new Date(consulta.data),
+    }).catch(() => {});
 
     res.json(atualizada);
   } catch (e) {

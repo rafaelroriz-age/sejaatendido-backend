@@ -3,6 +3,7 @@ import { prisma } from '../utils/prisma.js';
 import emailService from '../services/email.service.js';
 import { enviarPushParaUsuario } from '../services/push.service.js';
 import { notificarEmail, notificarPush, notificarWhatsApp } from '../services/notification.service.js';
+import { sendReminderMessage } from '../services/whatsappNotifier.service.js';
 import { moverSaldoParaLiberar, processarRepassesSemanal } from '../services/saldo.service.js';
 import { createPixPayout } from '../services/mercadopago.service.js';
 import { ENV } from '../env.js';
@@ -50,7 +51,7 @@ export async function runDailyReminders(): Promise<JobResult> {
       data: { gte: inicio, lte: fim },
     },
     include: {
-      paciente: { include: { usuario: { select: { id: true, nome: true, email: true } } } },
+      paciente: { include: { usuario: { select: { id: true, nome: true, email: true, telefone: true } } } },
       medico: { include: { usuario: { select: { id: true, nome: true } } } },
     },
   });
@@ -98,6 +99,22 @@ export async function runDailyReminders(): Promise<JobResult> {
       }
     } catch (e) {
       console.warn('Falha ao enviar lembrete diário (push)');
+    }
+
+    // WhatsApp lembrete 24h (best-effort)
+    try {
+      await sendReminderMessage({
+        consultaId: c.id,
+        paciente: {
+          usuarioId: c.paciente.usuario.id,
+          nome: c.paciente.usuario.nome,
+          telefone: c.paciente.usuario.telefone,
+        },
+        medico: { nome: c.medico.usuario.nome },
+        data: new Date(c.data),
+      });
+    } catch {
+      // best-effort
     }
 
     if (sentAny) {

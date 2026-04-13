@@ -17,6 +17,7 @@ import apiRoutes from './routes/api.js';
 import { errorHandler } from './middlewares/error.middleware.js';
 import { ENV } from './env.js';
 import { startEmailJobs } from './jobs/email.jobs.js';
+import { connectWhatsApp } from './services/whatsapp.service.js';
 // MongoDB/Chat desabilitado (não essencial, economiza ~7MB no npm ci)
 // Para reabilitar: npm i mongoose mongodb, descomentar import abaixo
 // import { connectMongoDB } from './utils/mongodb.js';
@@ -207,6 +208,13 @@ try {
   startEmailJobs();
 } catch (e) {
   logger.warn('email_jobs_start_failed', { error: e instanceof Error ? { name: e.name, message: e.message } : String(e) });
+}
+
+// WhatsApp Baileys — best-effort, não derruba a API
+if (ENV.ENABLE_WHATSAPP) {
+  connectWhatsApp().catch((e) => {
+    logger.warn('whatsapp_connect_failed', { error: e instanceof Error ? { name: e.name, message: e.message } : String(e) });
+  });
 }
 
 // MongoDB desabilitado — reabilitar quando necessário:

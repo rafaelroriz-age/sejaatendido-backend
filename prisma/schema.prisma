@@ -14,6 +14,7 @@ model Usuario {
   email     String   @unique
   senhaHash String
   tipo      TipoUsuario
+  telefone  String?
   emailConfirmado Boolean @default(false)
   emailVerificacaoTokenHash String?
   emailVerificacaoExpiraEm  DateTime?
