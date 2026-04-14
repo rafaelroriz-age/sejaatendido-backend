@@ -1,13 +1,14 @@
-import makeWASocket, {
-  useMultiFileAuthState,
-  DisconnectReason,
-  type WASocket,
-} from '@whiskeysockets/baileys';
-import qrcode from 'qrcode-terminal';
+/**
+ * WhatsApp service via Baileys (multi-device).
+ *
+ * IMPORTANTE: Baileys e qrcode-terminal são importados dinamicamente (lazy)
+ * para evitar crash no startup quando as dependências nativas não estão
+ * disponíveis (ex: Render sem ENABLE_WHATSAPP).
+ */
 import { logger, serializeError } from '../logger/winston.js';
-import { ENV } from '../env.js';
 
-let sock: WASocket | null = null;
+// Tipo genérico para o socket — evita importar Baileys estaticamente
+let sock: any = null;
 let connected = false;
 
 /**
@@ -17,6 +18,11 @@ let connected = false;
  */
 export async function connectWhatsApp(): Promise<void> {
   try {
+    const baileys = await import('@whiskeysockets/baileys');
+    const makeWASocket = baileys.default;
+    const { useMultiFileAuthState, DisconnectReason } = baileys;
+    const qrcode = (await import('qrcode-terminal')).default;
+
     const { state, saveCreds } = await useMultiFileAuthState('auth_info');
 
     sock = makeWASocket({
@@ -26,7 +32,7 @@ export async function connectWhatsApp(): Promise<void> {
 
     sock.ev.on('creds.update', saveCreds);
 
-    sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+    sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }: any) => {
       if (qr) {
         qrcode.generate(qr, { small: true });
         logger.info('whatsapp_qr', { msg: 'Escaneie o QR code acima com o WhatsApp' });
