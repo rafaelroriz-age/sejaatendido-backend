@@ -52,7 +52,7 @@ async function main() {
 
   const verify = await verificarSMTP();
   if (!verify.ok) {
-    console.error('SMTP verify: FAIL:', verify.erro);
+    console.error('SMTP verify: FAIL:', (verify as { ok: false; erro: string }).erro);
     process.exit(2);
   }
   console.log('SMTP verify: OK');
