@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../utils/prisma.js';
 import { ENV } from '../env.js';
+import { chatService } from '../services/chat.service.js';
 
 const r = Router();
 
@@ -33,3 +34,12 @@ r.get('/status', async (req, res) => {
 });
 
 export default r;
+
+r.post('/chat-cleanup', async (req, res) => {
+  const secret = req.headers['x-cron-secret'] || req.query.secret;
+  if (!ENV.CRON_SECRET || secret !== ENV.CRON_SECRET) {
+    return res.status(401).json({ erro: 'Não autorizado' });
+  }
+  const deletadas = await chatService.deleteExpired();
+  res.json({ ok: true, deletadas });
+});

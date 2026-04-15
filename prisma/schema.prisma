@@ -25,6 +25,8 @@ model Usuario {
   refreshTokens RefreshToken[]
   accessTokenBlocklist AccessTokenBlocklist[]
   passwordResetTokens PasswordResetToken[]
+  mensagensEnviadas   ChatMensagem[] @relation("ChatRemetente")
+  mensagensRecebidas  ChatMensagem[] @relation("ChatDestinatario")
   criadoEm  DateTime @default(now())
 }
 
@@ -96,6 +98,7 @@ model Consulta {
   pagamento  Pagamento?
   repasse    Repasse?
   avaliacao Avaliacao?
+  chatMensagens ChatMensagem[]
   medico     Medico   @relation(fields:[medicoId], references:[id])
   paciente   Paciente @relation(fields:[pacienteId], references:[id])
 
@@ -323,4 +326,28 @@ model CicloRepasse {
   @@index([medicoId])
   @@index([status])
   @@index([semanaInicio])
+}
+
+// =====================
+// CHAT (PostgreSQL)
+// =====================
+
+model ChatMensagem {
+  id              String    @id @default(uuid())
+  consultaId      String
+  remetenteId     String
+  destinatarioId  String
+  mensagem        String
+  lidaEm          DateTime?
+  criadoEm        DateTime  @default(now())
+  expiraEm        DateTime
+
+  consulta        Consulta  @relation(fields: [consultaId], references: [id], onDelete: Cascade)
+  remetente       Usuario   @relation("ChatRemetente", fields: [remetenteId], references: [id], onDelete: Cascade)
+  destinatario    Usuario   @relation("ChatDestinatario", fields: [destinatarioId], references: [id], onDelete: Cascade)
+
+  @@index([consultaId, criadoEm])
+  @@index([remetenteId])
+  @@index([destinatarioId])
+  @@index([expiraEm])
 }

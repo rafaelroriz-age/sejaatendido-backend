@@ -85,15 +85,6 @@ const EnvSchema = z
     // Database
     DATABASE_URL: z.string().trim().min(1),
     DIRECT_URL: z.string().trim().default(''),
-
-    // MongoDB (chat) - opcional
-    MONGODB_URI: z.string().default(''),
-
-    // Se true, falha ao conectar Mongo derruba o processo.
-    // Default: false (chat opcional não deve derrubar a API em produção).
-    MONGODB_REQUIRED: z
-      .preprocess((v) => String(v ?? '').toLowerCase() === 'true', z.boolean())
-      .default(false),
   })
   .strict();
 
@@ -141,8 +132,6 @@ export const ENV = (() => {
     CANCEL_TOKEN_TTL_HORAS: process.env.CANCEL_TOKEN_TTL_HORAS,
     DATABASE_URL: process.env.DATABASE_URL,
     DIRECT_URL: process.env.DIRECT_URL,
-    MONGODB_URI: process.env.MONGODB_URI,
-    MONGODB_REQUIRED: process.env.MONGODB_REQUIRED,
   });
 
   if (!parsed.success) {

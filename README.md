@@ -15,7 +15,6 @@ API REST (Express + TypeScript + Prisma/Postgres) para o app SejaAtendido.
 
 - Node.js >= 18
 - PostgreSQL (local ou Supabase)
-- (Opcional) MongoDB para chat
 
 ## 🚀 Rodar localmente
 
@@ -57,7 +56,7 @@ Este backend mantém rotas “legadas” (ex: `/auth/*`, `/usuarios/*`) e també
 - Usuários: `/api/usuarios/*`
 - Consultas: `/api/consultas/*`
 - Avaliações: `/api/avaliacoes/*`
-- Chats: `/api/chats/*` (chatId = consultaId; MongoDB opcional)
+- Chats: `/api/chats/*` (chatId = consultaId)
 
 ## 🐳 Docker
 
@@ -77,7 +76,6 @@ Run:
 - CORS: prefira `CORS_ORIGINS` (lista separada por vírgulas). `CORS_ORIGIN` também funciona por compatibilidade.
 - Porta: plataformas costumam fornecer `PORT`; localmente use `PORTA`.
 - Banco: `DIRECT_URL` agora é opcional (o backend usa apenas `DATABASE_URL`).
-- Chat (Mongo): se `MONGODB_URI` estiver definido e falhar a conexão, o backend não cai mais por padrão. Para tornar obrigatório, use `MONGODB_REQUIRED=true`.
 
 ## 📁 Estrutura
 

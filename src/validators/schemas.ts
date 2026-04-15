@@ -177,8 +177,8 @@ export const atualizarAvaliacaoSchema = z.object({
 });
 
 export const chatMensagemApiSchema = z.object({
-  recipientId: z.string().uuid('recipientId inválido'),
-  message: z.string().min(1, 'Mensagem obrigatória').max(2000, 'Mensagem muito longa'),
+  destinatarioId: z.string().uuid('destinatarioId inválido'),
+  mensagem: z.string().min(1, 'Mensagem obrigatória').max(2000, 'Mensagem muito longa'),
 });
 
 export const adminCriarUsuarioSchema = z.object({
@@ -242,10 +242,10 @@ export const enviarEmailSchema = z.object({
 });
 
 // =====================
-// CHAT SCHEMAS (MongoDB)
+// CHAT SCHEMAS
 // =====================
 export const chatEnviarMensagemSchema = z.object({
-  appointmentId: z.string().uuid('ID da consulta inválido'),
-  recipientId: z.string().uuid('ID do destinatário inválido'),
-  message: z.string().min(1, 'Mensagem obrigatória').max(2000, 'Mensagem muito longa'),
+  consultaId: z.string().uuid('ID da consulta inválido'),
+  destinatarioId: z.string().uuid('ID do destinatário inválido'),
+  mensagem: z.string().min(1, 'Mensagem obrigatória').max(2000, 'Mensagem muito longa'),
 });

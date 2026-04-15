@@ -9,7 +9,7 @@ Fornecer uma API REST segura e observável para o app SejaAtendido (telemedicina
 - Agendamento/gestão de consultas
 - Pagamentos (Stripe, opcional)
 - Notificações (email/push)
-- Chat (opcional via MongoDB)
+- Chat
 
 ### 1.2 Stakeholders
 - Paciente
@@ -100,7 +100,7 @@ Fora do escopo (por enquanto):
 ## 4. Restrições e premissas
 - Node.js 20 (Dockerfile e CI)
 - Postgres via Prisma
-- MongoDB apenas para chat (se `MONGODB_URI` configurado)
+- Chat armazenado no Postgres (tabela `ChatMensagem`, TTL 30 dias)
 - Compatibilidade com rotas legadas mantida
 
 ## 5. Critérios de aceitação (alto nível)

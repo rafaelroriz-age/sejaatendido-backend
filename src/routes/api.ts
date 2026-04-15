@@ -18,12 +18,7 @@ import {
   usuarioSearchSchema,
 } from '../validators/schemas.js';
 import { prisma } from '../utils/prisma.js';
-// Chat/MongoDB desabilitado — stubs inline
-// Para reabilitar: npm i mongoose mongodb, descomentar imports abaixo
-// import { chatService } from '../services/chat.service.js';
-// import { isMongoConnected } from '../utils/mongodb.js';
-const isMongoConnected = () => false;
-const chatService: any = null;
+import { chatService } from '../services/chat.service.js';
 
 const api = Router();
 
@@ -435,7 +430,7 @@ api.delete(
 );
 
 // =====================
-// CHATS (Mongo; chatId = consultaId)
+// CHATS (PostgreSQL; chatId = consultaId)
 // =====================
 async function assertChatPermission(params: { appointmentId: string; userId: string; userTipo?: string }) {
   const consulta = await prisma.consulta.findUnique({
@@ -498,19 +493,16 @@ api.get('/chats/usuario/:userId', authMiddleware, async (req, res) => {
 });
 
 api.get('/chats/:chatId/mensagens', authMiddleware, validateRequest({ params: chatIdParamSchema }), async (req, res) => {
-  if (!isMongoConnected()) {
-    return res.status(503).json({ erro: 'Chat indisponível (MongoDB desconectado)' });
-  }
-
   const chatId = String(req.params.chatId);
   const perm = await assertChatPermission({ appointmentId: chatId, userId: req.userId!, userTipo: req.userTipo });
   if (!perm.ok) return res.status(perm.status).json({ erro: perm.erro });
 
   const limitRaw = typeof req.query.limit === 'string' ? Number(req.query.limit) : undefined;
   const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(200, Number(limitRaw))) : 50;
+  const cursor = typeof req.query.cursor === 'string' ? req.query.cursor : undefined;
 
-  const messages = await chatService.getAppointmentChat(chatId, limit);
-  res.json(messages);
+  const mensagens = await chatService.getMessages(chatId, limit, cursor);
+  res.json({ mensagens });
 });
 
 api.post(
@@ -519,33 +511,29 @@ api.post(
   validateRequest({ params: chatIdParamSchema }),
   validate(chatMensagemApiSchema),
   async (req, res) => {
-  if (!isMongoConnected()) {
-    return res.status(503).json({ erro: 'Chat indisponível (MongoDB desconectado)' });
-  }
-
   const chatId = String(req.params.chatId);
-  const senderId = req.userId!;
-  const { recipientId, message } = req.body as { recipientId: string; message: string };
+  const remetenteId = req.userId!;
+  const { destinatarioId, mensagem } = req.body as { destinatarioId: string; mensagem: string };
 
-  const perm = await assertChatPermission({ appointmentId: chatId, userId: senderId, userTipo: req.userTipo });
+  const perm = await assertChatPermission({ appointmentId: chatId, userId: remetenteId, userTipo: req.userTipo });
   if (!perm.ok) return res.status(perm.status).json({ erro: perm.erro });
 
   const validRecipients = [perm.medicoUsuarioId, perm.pacienteUsuarioId];
-  if (!validRecipients.includes(recipientId) || recipientId === senderId) {
+  if (!validRecipients.includes(destinatarioId) || destinatarioId === remetenteId) {
     return res.status(400).json({ erro: 'Destinatário inválido' });
   }
 
-  const saved = await chatService.saveMessage({ appointmentId: chatId, senderId, recipientId, message });
+  const saved = await chatService.saveMessage({ consultaId: chatId, remetenteId, destinatarioId, mensagem });
   res.status(201).json(saved);
   }
 );
 
 api.put('/chats/:chatId/marcar-lidas', authMiddleware, validateRequest({ params: chatIdParamSchema }), async (req, res) => {
-  // Não há read receipts no modelo atual; endpoint mantido como no-op compatível
   const chatId = String(req.params.chatId);
   const perm = await assertChatPermission({ appointmentId: chatId, userId: req.userId!, userTipo: req.userTipo });
   if (!perm.ok) return res.status(perm.status).json({ erro: perm.erro });
-  res.json({ ok: true });
+  const atualizadas = await chatService.markAsRead(chatId, req.userId!);
+  res.json({ ok: true, atualizadas });
 });
 
 export default api;

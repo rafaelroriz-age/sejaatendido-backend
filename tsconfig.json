@@ -21,10 +21,6 @@
   ],
   "exclude": [
     "src/__tests__",
-    "test",
-    "src/utils/mongodb.ts",
-    "src/models/mongodb",
-    "src/services/chat.service.ts",
-    "src/routes/chat.ts"
+    "test"
   ]
 }

@@ -11,15 +11,10 @@ import usuarioRoutes from './routes/usuarios.js';
 import emailRoutes from './routes/emails.js';
 import notificacoesRoutes from './routes/notificacoes.js';
 import repassesRoutes from './routes/repasses.js';
-// Chat desabilitado (requer MongoDB)
-// import chatRoutes from './routes/chat.js';
 import apiRoutes from './routes/api.js';
 import { errorHandler } from './middlewares/error.middleware.js';
 import { ENV } from './env.js';
 import { startEmailJobs } from './jobs/email.jobs.js';
-// MongoDB/Chat desabilitado (não essencial, economiza ~7MB no npm ci)
-// Para reabilitar: npm i mongoose mongodb, descomentar import abaixo
-// import { connectMongoDB } from './utils/mongodb.js';
 import { logger, requestLogger } from './logger/winston.js';
 // swagger-ui-express removido do bundle de produção (12MB+)
 // Para reabilitar: npm i swagger-ui-express && descomentar
@@ -191,9 +186,6 @@ app.use('/usuarios', usuarioRoutes);
 app.use('/emails', emailRoutes);
 app.use('/notificacoes', notificacoesRoutes);
 app.use('/repasses', repassesRoutes);
-// Chat desabilitado (requer MongoDB)
-// app.use('/api/chat', chatRoutes);
-app.use('/api/chat', (_req, res) => res.status(503).json({ erro: 'Chat indisponível (MongoDB desabilitado)' }));
 app.use('/api', apiRoutes);
 
 // Sistema
@@ -208,11 +200,6 @@ try {
 } catch (e) {
   logger.warn('email_jobs_start_failed', { error: e instanceof Error ? { name: e.name, message: e.message } : String(e) });
 }
-
-// MongoDB desabilitado — reabilitar quando necessário:
-// connectMongoDB({ exitOnFail: ENV.MONGODB_REQUIRED }).catch((e) => {
-//   console.error('MongoDB connection error (não fatal):', e);
-// });
 
 // Render (e outras plataformas) expõem a porta via env PORT
 const portFromPlatform = process.env.PORT ? Number(process.env.PORT) : undefined;
