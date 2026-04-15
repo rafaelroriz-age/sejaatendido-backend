@@ -60,16 +60,10 @@ const EnvSchema = z
     SMTP_PASS: z.string().default(''),
     EMAIL_FROM: z.string().default(''),
 
-    // WhatsApp (Baileys — autenticação via QR code, sem credenciais)
-    // Variáveis Twilio mantidas para compatibilidade (ignoradas se Baileys ativo)
-    TWILIO_ACCOUNT_SID: z.string().default(''),
-    TWILIO_AUTH_TOKEN: z.string().default(''),
-    TWILIO_WHATSAPP_FROM: z.string().default(''),
-
-    // Habilita conexão WhatsApp via Baileys na inicialização
-    ENABLE_WHATSAPP: z
-      .preprocess((v) => String(v ?? '').toLowerCase() === 'true', z.boolean())
-      .default(false),
+    // WhatsApp Business API (Meta Cloud API)
+    WHATSAPP_TOKEN: z.string().default(''),
+    WHATSAPP_PHONE_NUMBER_ID: z.string().default(''),
+    WHATSAPP_API_VERSION: z.string().default('v19.0'),
 
     // Frontend/Backend (links em emails)
     // Compat: aceita FRONTEND_URL ou FRONTEND_ORIGIN.
@@ -134,10 +128,9 @@ export const ENV = (() => {
     SMTP_USER: process.env.SMTP_USER,
     SMTP_PASS: process.env.SMTP_PASS,
     EMAIL_FROM: process.env.EMAIL_FROM,
-    TWILIO_ACCOUNT_SID: process.env.TWILIO_ACCOUNT_SID,
-    TWILIO_AUTH_TOKEN: process.env.TWILIO_AUTH_TOKEN,
-    TWILIO_WHATSAPP_FROM: process.env.TWILIO_WHATSAPP_FROM,
-    ENABLE_WHATSAPP: process.env.ENABLE_WHATSAPP,
+    WHATSAPP_TOKEN: process.env.WHATSAPP_TOKEN,
+    WHATSAPP_PHONE_NUMBER_ID: process.env.WHATSAPP_PHONE_NUMBER_ID,
+    WHATSAPP_API_VERSION: process.env.WHATSAPP_API_VERSION,
     FRONTEND_URL: process.env.FRONTEND_URL ?? (process.env as any).FRONTEND_ORIGIN,
     BACKEND_URL: process.env.BACKEND_URL,
     ENABLE_EMAIL_JOBS: process.env.ENABLE_EMAIL_JOBS,

@@ -47,7 +47,9 @@
 | `FIREBASE_SERVICE_ACCOUNT_JSON_BASE64` | Service account do Firebase em base64 (evita problema com JSON multiline) |
 | `MONGODB_URI`                          | URI do MongoDB Atlas (só necessário se usar chat)                        |
 | `MONGODB_REQUIRED`                     | `true` se falha do Mongo deve derrubar a API (default: `false`)          |
-| `ENABLE_WHATSAPP`                      | `true` para conectar WhatsApp via Baileys no startup (default: `false`). Requer escaneio de QR code no terminal |
+| `WHATSAPP_TOKEN`                       | Token de acesso permanente do Meta Business (WhatsApp Cloud API)         |
+| `WHATSAPP_PHONE_NUMBER_ID`             | ID do número no painel do WhatsApp Business                              |
+| `WHATSAPP_API_VERSION`                 | Versão da API (default: `v19.0`)                                         |
 
 > **`DIRECT_URL` é obrigatória se `DATABASE_URL` usa o pooler (porta 6543).** As migrations do Prisma não funcionam com PgBouncer e precisam de uma conexão direta.
 
