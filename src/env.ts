@@ -35,6 +35,8 @@ const EnvSchema = z
     // Google OAuth
     GOOGLE_CLIENT_ID: z.string().default(''),
     GOOGLE_CLIENT_SECRET: z.string().default(''),
+    GOOGLE_ANDROID_CLIENT_ID: z.string().default(''),
+    GOOGLE_IOS_CLIENT_ID: z.string().default(''),
 
     // Stripe
     STRIPE_SECRET_KEY: z.string().default(''),

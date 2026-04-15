@@ -16,6 +16,7 @@ import jwt from 'jsonwebtoken';
 import { logger, serializeError } from '../logger/winston.js';
 
 const googleClient = ENV.GOOGLE_CLIENT_ID ? new OAuth2Client(ENV.GOOGLE_CLIENT_ID) : null;
+const googleAudiences = [ENV.GOOGLE_CLIENT_ID, ENV.GOOGLE_ANDROID_CLIENT_ID, ENV.GOOGLE_IOS_CLIENT_ID].filter(Boolean);
 
 export async function registro(req:Request, res:Response){
   try{
@@ -152,7 +153,7 @@ export async function loginGoogle(req:Request, res:Response){
 
     const ticket = await googleClient.verifyIdToken({
       idToken,
-      audience: ENV.GOOGLE_CLIENT_ID,
+      audience: googleAudiences,
     });
 
     const payload = ticket.getPayload();
