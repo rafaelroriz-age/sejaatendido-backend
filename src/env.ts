@@ -38,6 +38,9 @@ const EnvSchema = z
     GOOGLE_ANDROID_CLIENT_ID: z.string().default(''),
     GOOGLE_IOS_CLIENT_ID: z.string().default(''),
 
+    // Apple Sign In
+    APPLE_CLIENT_ID: z.string().default(''),
+
     // Stripe
     STRIPE_SECRET_KEY: z.string().default(''),
     STRIPE_WEBHOOK_SECRET: z.string().default(''),
@@ -109,6 +112,7 @@ export const ENV = (() => {
     CRON_SECRET: process.env.CRON_SECRET,
     GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
+    APPLE_CLIENT_ID: process.env.APPLE_CLIENT_ID,
     STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
     STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
     MERCADOPAGO_ACCESS_TOKEN: process.env.MERCADOPAGO_ACCESS_TOKEN,

@@ -19,6 +19,7 @@ model Usuario {
   emailVerificacaoTokenHash String?
   emailVerificacaoExpiraEm  DateTime?
   emailVerificacaoEnviadoEm DateTime?
+  appleUserId String? @unique
   medico    Medico?
   paciente  Paciente?
   deviceTokens DeviceToken[]

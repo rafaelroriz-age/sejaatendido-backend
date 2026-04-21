@@ -74,6 +74,21 @@ export const loginGoogleSchema = z.object({
   idToken: z.string().min(1, 'idToken é obrigatório'),
 });
 
+export const loginAppleSchema = z.object({
+  identityToken: z.string().min(1, 'identityToken é obrigatório'),
+  fullName: z
+    .object({
+      givenName: z.string().nullable().optional(),
+      familyName: z.string().nullable().optional(),
+    })
+    .optional(),
+  email: z.string().trim().email('Email inválido').optional(),
+});
+
+export const appleNotificationSchema = z.object({
+  signedPayload: z.string().min(1, 'signedPayload é obrigatório'),
+});
+
 // =====================
 // COMMON PARAMS/QUERY SCHEMAS
 // =====================
