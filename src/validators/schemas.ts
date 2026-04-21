@@ -74,6 +74,21 @@ export const loginGoogleSchema = z.object({
   idToken: z.string().min(1, 'idToken é obrigatório'),
 });
 
+export const loginAppleSchema = z.object({
+  identityToken: z.string().min(1, 'identityToken é obrigatório'),
+  fullName: z
+    .object({
+      givenName: z.string().nullable().optional(),
+      familyName: z.string().nullable().optional(),
+    })
+    .optional(),
+  email: z.string().trim().email('Email inválido').optional(),
+});
+
+export const appleNotificationSchema = z.object({
+  signedPayload: z.string().min(1, 'signedPayload é obrigatório'),
+});
+
 // =====================
 // COMMON PARAMS/QUERY SCHEMAS
 // =====================
@@ -177,8 +192,8 @@ export const atualizarAvaliacaoSchema = z.object({
 });
 
 export const chatMensagemApiSchema = z.object({
-  recipientId: z.string().uuid('recipientId inválido'),
-  message: z.string().min(1, 'Mensagem obrigatória').max(2000, 'Mensagem muito longa'),
+  destinatarioId: z.string().uuid('destinatarioId inválido'),
+  mensagem: z.string().min(1, 'Mensagem obrigatória').max(2000, 'Mensagem muito longa'),
 });
 
 export const adminCriarUsuarioSchema = z.object({
@@ -242,10 +257,10 @@ export const enviarEmailSchema = z.object({
 });
 
 // =====================
-// CHAT SCHEMAS (MongoDB)
+// CHAT SCHEMAS
 // =====================
 export const chatEnviarMensagemSchema = z.object({
-  appointmentId: z.string().uuid('ID da consulta inválido'),
-  recipientId: z.string().uuid('ID do destinatário inválido'),
-  message: z.string().min(1, 'Mensagem obrigatória').max(2000, 'Mensagem muito longa'),
+  consultaId: z.string().uuid('ID da consulta inválido'),
+  destinatarioId: z.string().uuid('ID do destinatário inválido'),
+  mensagem: z.string().min(1, 'Mensagem obrigatória').max(2000, 'Mensagem muito longa'),
 });

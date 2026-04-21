@@ -19,8 +19,7 @@
 ## P1 — Produto/Qualidade
 
 5) **Chat read receipts (marcar lidas real)**
-- Hoje endpoint é no-op (compat)
-- Opções: modelar receipts no Mongo ou tabela Postgres
+- Implementado: campo `lidaEm` na tabela `ChatMensagem`, endpoint `PUT /api/chats/:chatId/marcar-lidas` funcional
 
 6) **Paginação/filtragem consistente**
 - Listagens podem crescer (consultas, avaliações, mensagens)

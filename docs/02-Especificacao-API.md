@@ -68,7 +68,7 @@ Resposta comum:
 - `PUT /api/avaliacoes/{id}`
 - `DELETE /api/avaliacoes/{id}`
 
-### Chats (Mongo opcional)
+### Chats
 - `POST /api/chats/iniciar`
 - `GET /api/chats/usuario/{userId}`
 - `GET /api/chats/{chatId}/mensagens`

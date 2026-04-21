@@ -35,6 +35,11 @@ const EnvSchema = z
     // Google OAuth
     GOOGLE_CLIENT_ID: z.string().default(''),
     GOOGLE_CLIENT_SECRET: z.string().default(''),
+    GOOGLE_ANDROID_CLIENT_ID: z.string().default(''),
+    GOOGLE_IOS_CLIENT_ID: z.string().default(''),
+
+    // Apple Sign In
+    APPLE_CLIENT_ID: z.string().default(''),
 
     // Stripe
     STRIPE_SECRET_KEY: z.string().default(''),
@@ -60,16 +65,10 @@ const EnvSchema = z
     SMTP_PASS: z.string().default(''),
     EMAIL_FROM: z.string().default(''),
 
-    // WhatsApp (Baileys — autenticação via QR code, sem credenciais)
-    // Variáveis Twilio mantidas para compatibilidade (ignoradas se Baileys ativo)
-    TWILIO_ACCOUNT_SID: z.string().default(''),
-    TWILIO_AUTH_TOKEN: z.string().default(''),
-    TWILIO_WHATSAPP_FROM: z.string().default(''),
-
-    // Habilita conexão WhatsApp via Baileys na inicialização
-    ENABLE_WHATSAPP: z
-      .preprocess((v) => String(v ?? '').toLowerCase() === 'true', z.boolean())
-      .default(false),
+    // WhatsApp Business API (Meta Cloud API)
+    WHATSAPP_TOKEN: z.string().default(''),
+    WHATSAPP_PHONE_NUMBER_ID: z.string().default(''),
+    WHATSAPP_API_VERSION: z.string().default('v19.0'),
 
     // Frontend/Backend (links em emails)
     // Compat: aceita FRONTEND_URL ou FRONTEND_ORIGIN.
@@ -89,15 +88,6 @@ const EnvSchema = z
     // Database
     DATABASE_URL: z.string().trim().min(1),
     DIRECT_URL: z.string().trim().default(''),
-
-    // MongoDB (chat) - opcional
-    MONGODB_URI: z.string().default(''),
-
-    // Se true, falha ao conectar Mongo derruba o processo.
-    // Default: false (chat opcional não deve derrubar a API em produção).
-    MONGODB_REQUIRED: z
-      .preprocess((v) => String(v ?? '').toLowerCase() === 'true', z.boolean())
-      .default(false),
   })
   .strict();
 
@@ -122,6 +112,7 @@ export const ENV = (() => {
     CRON_SECRET: process.env.CRON_SECRET,
     GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
+    APPLE_CLIENT_ID: process.env.APPLE_CLIENT_ID,
     STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
     STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
     MERCADOPAGO_ACCESS_TOKEN: process.env.MERCADOPAGO_ACCESS_TOKEN,
@@ -134,10 +125,9 @@ export const ENV = (() => {
     SMTP_USER: process.env.SMTP_USER,
     SMTP_PASS: process.env.SMTP_PASS,
     EMAIL_FROM: process.env.EMAIL_FROM,
-    TWILIO_ACCOUNT_SID: process.env.TWILIO_ACCOUNT_SID,
-    TWILIO_AUTH_TOKEN: process.env.TWILIO_AUTH_TOKEN,
-    TWILIO_WHATSAPP_FROM: process.env.TWILIO_WHATSAPP_FROM,
-    ENABLE_WHATSAPP: process.env.ENABLE_WHATSAPP,
+    WHATSAPP_TOKEN: process.env.WHATSAPP_TOKEN,
+    WHATSAPP_PHONE_NUMBER_ID: process.env.WHATSAPP_PHONE_NUMBER_ID,
+    WHATSAPP_API_VERSION: process.env.WHATSAPP_API_VERSION,
     FRONTEND_URL: process.env.FRONTEND_URL ?? (process.env as any).FRONTEND_ORIGIN,
     BACKEND_URL: process.env.BACKEND_URL,
     ENABLE_EMAIL_JOBS: process.env.ENABLE_EMAIL_JOBS,
@@ -146,8 +136,6 @@ export const ENV = (() => {
     CANCEL_TOKEN_TTL_HORAS: process.env.CANCEL_TOKEN_TTL_HORAS,
     DATABASE_URL: process.env.DATABASE_URL,
     DIRECT_URL: process.env.DIRECT_URL,
-    MONGODB_URI: process.env.MONGODB_URI,
-    MONGODB_REQUIRED: process.env.MONGODB_REQUIRED,
   });
 
   if (!parsed.success) {

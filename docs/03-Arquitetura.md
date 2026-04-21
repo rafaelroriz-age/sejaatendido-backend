@@ -3,8 +3,7 @@
 ## 1. Visão geral
 
 - **Express** como servidor HTTP
-- **Prisma + Postgres** como banco principal
-- **MongoDB (Mongoose)** opcional para chat
+- **Prisma + Postgres** como banco principal (inclui chat)
 - **Zod** para validação (middleware sanitiza substituindo o body parseado)
 - **Winston** para logs estruturados
 
@@ -15,7 +14,7 @@
 - `src/routes/*`: roteadores
 - `src/controllers/*`: lógica de controllers (ex.: auth)
 - `src/middlewares/*`: auth, validação, error handler
-- `src/utils/*`: Prisma client, tokens, Mongo connection
+- `src/utils/*`: Prisma client, tokens
 - `src/services/*`: email/push/chat
 
 ## 3. Modelo de dados (alto nível)
@@ -29,9 +28,7 @@ Postgres (Prisma):
 - `RefreshToken` (hash, expira, revogado)
 - `AccessTokenBlocklist` (jti)
 - `PasswordResetToken` (hash, expira, usado)
-
-Mongo (opcional):
-- `ChatMessage` por `appointmentId` (consulta)
+- `ChatMensagem` por `consultaId` (TTL 30 dias, read receipts)
 
 ## 4. Fluxos principais
 
